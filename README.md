@@ -14,8 +14,8 @@ A three-part commerce stack:
 
 ### Mobile App - Home & Categories
 <p>
-   <img src="https://github.com/user-attachments/assets/d01580fe-56ae-492b-a86a-5c750fb8f720" alt="Mobile Home" width="32%" />
    <img src="https://github.com/user-attachments/assets/981906a7-6c6f-417a-bbb5-c611f6f03fb5" alt="Mobile Categories" width="32%" />
+   <img src="https://github.com/user-attachments/assets/d01580fe-56ae-492b-a86a-5c750fb8f720" alt="Mobile Home" width="32%" />
 </p>
 
 ### Mobile App - Bakong Payment Integration

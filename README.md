@@ -13,10 +13,14 @@ A three-part commerce stack:
 
 
 ### Mobile App - Home & Categories
-<img src="https://github.com/MangChhunleang/ShopEase_E_Commerce/blob/main/docs/screenshots/mobile_home.png?raw=true" width="45%" alt="Mobile Home"> <img src="https://github.com/MangChhunleang/ShopEase_E_Commerce/blob/main/docs/screenshots/mobile_categories.png?raw=true" width="45%" alt="Mobile Categories">
+<img width="1080" height="2400" alt="Screenshot_20260114_232801 (1)" src="https://github.com/user-attachments/assets/981906a7-6c6f-417a-bbb5-c611f6f03fb5" /> 
+<img width="1080" height="2400" alt="Screenshot_20260114_232855 (1)" src="https://github.com/user-attachments/assets/d01580fe-56ae-492b-a86a-5c750fb8f720" />
+
+
 
 ### Mobile App - Bakong Payment Integration
-<img src="https://github.com/MangChhunleang/ShopEase_E_Commerce/blob/main/docs/screenshots/mobile_payment.png?raw=true" width="45%" alt="Bakong Payment">
+<img width="1080" height="2400" alt="Screenshot_20260114_232954 (1)" src="https://github.com/user-attachments/assets/e701fd51-b6fc-4184-aea0-b1fe7fdee319" />
+
 
 ## Repository Layout
 

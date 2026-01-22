@@ -13,10 +13,10 @@ A three-part commerce stack:
 
 
 ### Mobile App - Home & Categories
-<img width="958.5" height="300" alt="Screenshot_20260114_232801 (1)" src="https://github.com/user-attachments/assets/981906a7-6c6f-417a-bbb5-c611f6f03fb5" /> 
-<img width="1080" height="2400" alt="Screenshot_20260114_232855 (1)" src="https://github.com/user-attachments/assets/d01580fe-56ae-492b-a86a-5c750fb8f720" />
-
-
+<p>
+   <img src="https://github.com/user-attachments/assets/d01580fe-56ae-492b-a86a-5c750fb8f720" alt="Mobile Home" width="32%" />
+   <img src="https://github.com/user-attachments/assets/981906a7-6c6f-417a-bbb5-c611f6f03fb5" alt="Mobile Categories" width="32%" />
+</p>
 
 ### Mobile App - Bakong Payment Integration
 <img width="1080" height="2400" alt="Screenshot_20260114_232954 (1)" src="https://github.com/user-attachments/assets/e701fd51-b6fc-4184-aea0-b1fe7fdee319" />

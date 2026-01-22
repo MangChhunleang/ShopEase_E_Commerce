@@ -6,6 +6,17 @@ A three-part commerce stack:
 - **Admin Web** – React + Vite dashboard for managing products, categories, banners, and orders.
 - **Mobile App** – Flutter shopper app with Firebase Auth, KHQR payments, and shared catalog.
 
+## 📸 Screenshots
+
+### Admin Panel Dashboard
+<img src="https://github.com/MangChhunleang/ShopEase_E_Commerce/blob/main/docs/screenshots/admin_dashboard.png?raw=true" width="100%" alt="Admin Dashboard">
+
+### Mobile App - Home & Categories
+<img src="https://github.com/MangChhunleang/ShopEase_E_Commerce/blob/main/docs/screenshots/mobile_home.png?raw=true" width="45%" alt="Mobile Home"> <img src="https://github.com/MangChhunleang/ShopEase_E_Commerce/blob/main/docs/screenshots/mobile_categories.png?raw=true" width="45%" alt="Mobile Categories">
+
+### Mobile App - Bakong Payment Integration
+<img src="https://github.com/MangChhunleang/ShopEase_E_Commerce/blob/main/docs/screenshots/mobile_payment.png?raw=true" width="45%" alt="Bakong Payment">
+
 ## Repository Layout
 
 - `backend/` – Express server, MySQL access layer, Bakong + Firebase integrations, upload handling.

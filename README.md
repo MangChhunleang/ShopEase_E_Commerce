@@ -9,7 +9,7 @@ A three-part commerce stack:
 ## 📸 Screenshots
 
 ### Admin Panel Dashboard
-<img width="1917" height="715" alt="Screenshot 2026-01-14 233033 (1)" src="https://github.com/user-attachments/assets/44dce473-ad18-480a-a9b7-496d7fe0ee48" />
+<img width="1917" height="300" alt="Screenshot 2026-01-14 233033 (1)" src="https://github.com/user-attachments/assets/44dce473-ad18-480a-a9b7-496d7fe0ee48" />
 
 
 ### Mobile App - Home & Categories

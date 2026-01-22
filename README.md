@@ -117,3 +117,7 @@ Flutter:
 - Point `DATABASE_URL` to managed MySQL with backups and migrations; run schema init scripts.
 - Serve static uploads via CDN or secured storage if needed.
 - Enable HTTPS termination for both API and frontends.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

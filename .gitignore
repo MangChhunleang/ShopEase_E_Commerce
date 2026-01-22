@@ -1,0 +1,62 @@
+# Root-level gitignore for ShopEase monorepo
+
+# Environment variables
+.env
+.env.local
+.env.production
+*.env
+
+# Credentials and keys
+**/serviceAccountKey.json
+**/*_key.json
+**/*.pem
+**/*.key
+**/*.p12
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build outputs
+dist/
+build/
+out/
+
+# Dependencies
+node_modules/
+.dart_tool/
+.pub-cache/
+
+# Backups and old files
+Copy/
+*.old
+*.backup
+_backup/
+
+# Test outputs
+coverage/
+.nyc_output/
+test-results/
+
+# Debug files
+*.debug
+*_output.txt
+debug-*.txt

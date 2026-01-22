@@ -1,0 +1,45 @@
+datasource db {
+  provider = "mysql"
+  url = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  products      Product[] @relation("ProductUpdatedBy")
+}
+
+model Product {
+  id         Int      @id @default(autoincrement())
+  name       String
+  description String?
+  price      Decimal  @db.Decimal(10, 2)
+  stock      Int      @default(0)
+  status     ProductStatus @default(ACTIVE)
+  images     Json?
+  category   String?
+  offer      String?
+  color      String?
+  updatedBy  User?    @relation("ProductUpdatedBy", fields: [updatedById], references: [id])
+  updatedById Int?
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ProductStatus {
+  ACTIVE
+  ARCHIVED
+}

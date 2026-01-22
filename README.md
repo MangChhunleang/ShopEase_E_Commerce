@@ -6,6 +6,24 @@ A three-part commerce stack:
 - **Admin Web** – React + Vite dashboard for managing products, categories, banners, and orders.
 - **Mobile App** – Flutter shopper app with Firebase Auth, KHQR payments, and shared catalog.
 
+## 📸 Screenshots
+
+### Admin Panel Dashboard
+<img width="1917" height="300" alt="Screenshot 2026-01-14 233033 (1)" src="https://github.com/user-attachments/assets/44dce473-ad18-480a-a9b7-496d7fe0ee48" />
+
+
+### Mobile App - Home & Categories
+<p>
+   <img src="https://github.com/user-attachments/assets/d01580fe-56ae-492b-a86a-5c750fb8f720" alt="Mobile Home" width="32%" />
+   <img src="https://github.com/user-attachments/assets/981906a7-6c6f-417a-bbb5-c611f6f03fb5" alt="Mobile Categories" width="32%" />
+</p>
+
+### Mobile App - Bakong Payment Integration
+<p>
+   <img src="https://github.com/user-attachments/assets/e701fd51-b6fc-4184-aea0-b1fe7fdee319" alt="Bakong Payment" width="32%" />
+</p>
+
+
 ## Repository Layout
 
 - `backend/` – Express server, MySQL access layer, Bakong + Firebase integrations, upload handling.

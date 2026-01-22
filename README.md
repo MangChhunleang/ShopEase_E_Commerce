@@ -19,7 +19,9 @@ A three-part commerce stack:
 </p>
 
 ### Mobile App - Bakong Payment Integration
-<img width="1080" height="2400" alt="Screenshot_20260114_232954 (1)" src="https://github.com/user-attachments/assets/e701fd51-b6fc-4184-aea0-b1fe7fdee319" />
+<p>
+   <img src="https://github.com/user-attachments/assets/e701fd51-b6fc-4184-aea0-b1fe7fdee319" alt="Bakong Payment" width="32%" />
+</p>
 
 
 ## Repository Layout

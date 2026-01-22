@@ -1,0 +1,22 @@
+node_modules
+# Keep environment variables out of version control
+.env
+.env.*
+
+/generated/prisma
+
+# Uploaded files
+uploads/
+
+# Credentials
+serviceAccountKey.json
+*_key.json
+*.pem
+
+# Logs
+*.log
+logs/
+
+# Test/debug scripts outputs
+test-*.js
+debug-*.js

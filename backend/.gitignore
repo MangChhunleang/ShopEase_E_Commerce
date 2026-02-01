@@ -17,6 +17,6 @@ serviceAccountKey.json
 *.log
 logs/
 
-# Test/debug scripts outputs
-test-*.js
+# Test/debug scripts outputs (except performance test)
+test-order-limiter.js
 debug-*.js

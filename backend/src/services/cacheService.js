@@ -2,13 +2,21 @@
  * Cache Service for ShopEase
  * Provides Redis-based caching with TTL support
  * 
+ * Features:
+ * - Graceful degradation if Redis unavailable
+ * - Pattern-based cache invalidation
+ * - Automatic TTL management
+ * - Cache statistics tracking
+ * - Built-in middleware support
+ * 
  * Usage:
- * 1. npm install redis ioredis
+ * 1. npm install redis
  * 2. Add REDIS_URL to .env (optional, defaults to localhost:6379)
- * 3. Import and use in routes
+ * 3. Initialize in server.js: await cache.init()
+ * 4. Use in endpoints: app.get('/api/data', withCache('key', 300), handler)
  */
 
-import redis from 'redis';
+import { createClient } from 'redis';
 import { logger } from './logger.js';
 
 class CacheService {
@@ -26,7 +34,7 @@ class CacheService {
     try {
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
       
-      this.client = redis.createClient({
+      this.client = createClient({
         url: redisUrl,
         socket: {
           reconnectStrategy: (retries) => {

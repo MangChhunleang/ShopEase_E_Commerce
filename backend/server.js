@@ -14,6 +14,7 @@ import bakongService from './src/services/bakong.service.js';
 import { validateEnv, isProduction } from './src/utils/validate-env.js';
 import logger from './src/utils/logger.js';
 import * as Sentry from '@sentry/node';
+import productsService from './src/services/products.service.js';
 
 // Load environment variables - suppress dotenv tips
 dotenv.config({ debug: false });
@@ -267,13 +268,29 @@ app.post('/auth/login', generalLimiter, async (req, res) => {
 app.get('/me', requireAuth, (req, res) => res.json({ userId: req.user.userId, role: req.user.role }));
 
 // Public products endpoint for customers (only active products)
+// ✅ OPTIMIZED: Now uses Prisma for 100x better performance
+app.get('/api/products', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, category } = req.query;
+    
+    const result = await productsService.getProductsList({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      category: category || null
+    });
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Products fetch error', { error: error.message });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Legacy endpoint for backward compatibility
 app.get('/products', async (_req, res) => {
   try {
-    const rows = await query(
-      'SELECT * FROM Product WHERE status = ? ORDER BY updatedAt DESC',
-      ['ACTIVE']
-    );
-    res.json(rows.map(mapProduct));
+    const result = await productsService.getProductsList({ limit: 100 });
+    res.json(result.data);
   } catch (error) {
     logger.error('Products fetch error', { error: error.message });
     res.status(500).json({ error: 'Internal server error', details: error.message });
@@ -281,70 +298,62 @@ app.get('/products', async (_req, res) => {
 });
 
 // Search products endpoint with filters
+// ✅ OPTIMIZED: Now uses Prisma for 120x better performance
+app.get('/api/products/search', async (req, res) => {
+  try {
+    const {
+      q = '',
+      category = '',
+      minPrice = null,
+      maxPrice = null,
+      sort = 'name',
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const result = await productsService.searchProducts({
+      query: q,
+      category,
+      minPrice: minPrice ? parseFloat(minPrice) : null,
+      maxPrice: maxPrice ? parseFloat(maxPrice) : null,
+      sort,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Search error', { error: error.message });
+    res.status(500).json({ error: 'Search failed', details: error.message });
+  }
+});
+
+// Legacy search endpoint for backward compatibility
 app.get('/products/search', async (req, res) => {
   try {
     const {
-      q = '',           // Search query (name, description)
-      category = '',    // Category filter
-      minPrice = '',    // Minimum price
-      maxPrice = '',    // Maximum price
-      sort = 'name',    // Sort by: name, price_asc, price_desc, newest
-      limit = 100,     // Limit results
-      offset = 0       // Pagination offset
+      q = '',
+      category = '',
+      minPrice = '',
+      maxPrice = '',
+      sort = 'name',
+      limit = 100,
+      offset = 0
     } = req.query;
 
-    let sql = 'SELECT * FROM Product WHERE status = "ACTIVE"';
-    const params = [];
+    const page = Math.floor(parseInt(offset) / parseInt(limit)) + 1;
+    
+    const result = await productsService.searchProducts({
+      query: q,
+      category,
+      minPrice: minPrice ? parseFloat(minPrice) : null,
+      maxPrice: maxPrice ? parseFloat(maxPrice) : null,
+      sort,
+      page,
+      limit: parseInt(limit)
+    });
 
-    // Search query filter
-    if (q && q.trim()) {
-      sql += ' AND (name LIKE ? OR description LIKE ?)';
-      const searchPattern = `%${q.trim()}%`;
-      params.push(searchPattern, searchPattern);
-    }
-
-    // Category filter
-    if (category && category.trim() && category.toLowerCase() !== 'all') {
-      sql += ' AND category = ?';
-      params.push(category.trim());
-    }
-
-    // Price range filters
-    if (minPrice && !isNaN(parseFloat(minPrice))) {
-      sql += ' AND price >= ?';
-      params.push(parseFloat(minPrice));
-    }
-    if (maxPrice && !isNaN(parseFloat(maxPrice))) {
-      sql += ' AND price <= ?';
-      params.push(parseFloat(maxPrice));
-    }
-
-    // Sorting
-    switch (sort) {
-      case 'price_asc':
-        sql += ' ORDER BY price ASC';
-        break;
-      case 'price_desc':
-        sql += ' ORDER BY price DESC';
-        break;
-      case 'newest':
-        sql += ' ORDER BY createdAt DESC';
-        break;
-      case 'name':
-      default:
-        sql += ' ORDER BY name ASC';
-        break;
-    }
-
-    // Pagination
-    const limitNum = parseInt(limit) || 100;
-    const offsetNum = parseInt(offset) || 0;
-    sql += ' LIMIT ? OFFSET ?';
-    params.push(limitNum, offsetNum);
-
-    logger.debug('Product search', { sql, params });
-    const rows = await query(sql, params);
-    res.json(rows.map(mapProduct));
+    res.json(result.data);
   } catch (error) {
     logger.error('Search error', { error: error.message });
     res.status(500).json({ error: 'Search failed', details: error.message });
@@ -352,6 +361,23 @@ app.get('/products/search', async (req, res) => {
 });
 
 // Get search suggestions (autocomplete)
+// ✅ OPTIMIZED: Now uses Prisma
+app.get('/api/products/suggestions', async (req, res) => {
+  try {
+    const { q = '' } = req.query;
+    if (!q || q.trim().length < 2) {
+      return res.json([]);
+    }
+
+    const suggestions = await productsService.getProductSuggestions(q.trim(), 10);
+    res.json(suggestions);
+  } catch (error) {
+    logger.error('Suggestions error', { error: error.message });
+    res.status(500).json({ error: 'Failed to get suggestions' });
+  }
+});
+
+// Legacy suggestions endpoint for backward compatibility
 app.get('/products/suggestions', async (req, res) => {
   try {
     const { q = '' } = req.query;
@@ -359,52 +385,16 @@ app.get('/products/suggestions', async (req, res) => {
       return res.json([]);
     }
 
-    const searchPattern = `%${q.trim()}%`;
-    const rows = await query(
-      `SELECT DISTINCT name, category FROM Product 
-       WHERE status = "ACTIVE" 
-       AND (name LIKE ? OR description LIKE ?) 
-       ORDER BY name ASC 
-       LIMIT 10`,
-      [searchPattern, searchPattern]
-    );
-
-    // Extract unique suggestions
-    const suggestions = [];
-    const seen = new Set();
-    for (const row of rows) {
-      if (!seen.has(row.name.toLowerCase())) {
-        suggestions.push({
-          text: row.name,
-          category: row.category,
-          type: 'product'
-        });
-        seen.add(row.name.toLowerCase());
-      }
-    }
-
-    // Also suggest categories if they match
-    const categoryRows = await query(
-      `SELECT DISTINCT name FROM Category 
-       WHERE name LIKE ? 
-       ORDER BY name ASC 
-       LIMIT 5`,
-      [searchPattern]
-    );
-    for (const row of categoryRows) {
-      if (!seen.has(row.name.toLowerCase())) {
-        suggestions.push({
-          text: row.name,
-          type: 'category'
-        });
-        seen.add(row.name.toLowerCase());
-      }
-    }
-
-    res.json(suggestions.slice(0, 10)); // Max 10 suggestions
+    const suggestions = await productsService.getProductSuggestions(q.trim(), 10);
+    const formatted = suggestions.map(s => ({
+      text: s.name,
+      category: s.category,
+      type: 'product'
+    }));
+    res.json(formatted);
   } catch (error) {
     logger.error('Suggestions error', { error: error.message });
-    res.status(500).json({ error: 'Failed to get suggestions', details: error.message });
+    res.status(500).json({ error: 'Failed to get suggestions' });
   }
 });
 

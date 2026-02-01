@@ -17,7 +17,7 @@
  */
 
 import { createClient } from 'redis';
-import { logger } from './logger.js';
+import logger from '../utils/logger.js';
 
 class CacheService {
   constructor() {

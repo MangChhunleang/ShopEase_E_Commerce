@@ -20,7 +20,7 @@
 import * as productsService from './products.service.js';
 import { cache } from './cacheService.js';
 import { getCacheKeys, getInvalidationPatterns } from './cacheKeys.js';
-import { logger } from './logger.js';
+import logger from '../utils/logger.js';
 
 /**
  * Get all products with caching

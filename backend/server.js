@@ -11,19 +11,21 @@ import { requireAuth, requireAdmin } from './src/middleware/auth.js';
 import authRoutes from './src/routes/auth.routes.js';
 import { upload, uploadBanner, getImageUrl, getBannerUrl, deleteImageFile, deleteBannerFile, extractFilenameFromUrl } from './src/utils/upload.js';
 import bakongService from './src/services/bakong.service.js';
+import { validateEnv, isProduction } from './src/utils/validate-env.js';
+import logger from './src/utils/logger.js';
+import * as Sentry from '@sentry/node';
 
 // Load environment variables - suppress dotenv tips
 dotenv.config({ debug: false });
 
-// Debug logging utility - enable with DEBUG=true in .env
+// Validate environment variables before starting
+validateEnv();
+
+// Debug logging utility - now uses Winston logger
 const DEBUG = process.env.DEBUG === 'true';
 const debug = (tag, message, data = null) => {
   if (DEBUG) {
-    if (data) {
-      console.log(`[${tag}] ${message}`, data);
-    } else {
-      console.log(`[${tag}] ${message}`);
-    }
+    logger.debug(`[${tag}] ${message}`, data || {});
   }
 };
 
@@ -32,22 +34,47 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// CORS configuration - allow web admin and mobile app requests
-// Mobile apps don't enforce CORS, but we allow all origins for development
-// In production, specify exact origins via ALLOWED_ORIGINS env var
+// Sentry error tracking (optional)
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0),
+  });
+
+  app.use(Sentry.Handlers.requestHandler());
+  logger.info('Sentry initialized');
+}
+
+// CORS configuration - secure for production
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['http://localhost:5173', 'http://localhost:3000'];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    // Allow requests with no origin (mobile apps, Postman, curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow all for development - restrict in production
+    
+    // In production, strictly enforce allowed origins
+    if (isProduction() && !allowedOrigins.includes(origin)) {
+      logger.warn('CORS: Blocked unauthorized origin', { origin });
+      return callback(new Error('Not allowed by CORS'));
     }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // In development, allow all origins with warning
+    if (!isProduction()) {
+      logger.warn('CORS: Allowing origin in development mode', { origin });
+      return callback(null, true);
+    }
+    
+    // Reject if not in allowed list and in production
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 }));
@@ -92,6 +119,46 @@ const generalLimiter = rateLimit({
 
 // Apply general limiter to all routes
 app.use(generalLimiter);
+
+// ==================== HEALTH CHECK ENDPOINTS ====================
+// These endpoints should respond quickly without auth or rate limiting
+
+// Basic health check - is the server running?
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Ready check - is the server ready to handle requests?
+app.get('/ready', async (req, res) => {
+  try {
+    // Check database connection
+    await query('SELECT 1');
+    
+    res.status(200).json({
+      status: 'ready',
+      timestamp: new Date().toISOString(),
+      checks: {
+        database: 'ok',
+        uptime: process.uptime()
+      }
+    });
+  } catch (error) {
+    logger.error('Health check failed', { error: error.message });
+    res.status(503).json({
+      status: 'not_ready',
+      timestamp: new Date().toISOString(),
+      checks: {
+        database: 'error',
+        error: error.message
+      }
+    });
+  }
+});
 
 // Serve static files (uploaded images)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -178,21 +245,21 @@ app.post('/auth/login', generalLimiter, async (req, res) => {
     const users = await query('SELECT * FROM User WHERE email = ? LIMIT 1', [email]);
     const user = users[0];
     if (!user) {
-      console.log(`[LOGIN] User not found: ${email}`);
+      logger.logAuth('LOGIN', email, false, 'User not found');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
-      console.log(`[LOGIN] Invalid password for: ${email}`);
+      logger.logAuth('LOGIN', email, false, 'Invalid password');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log(`[LOGIN] Success: ${email} (${user.role})`);
+    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    logger.logAuth('LOGIN', email, true, `Role: ${user.role}`);
     res.json({ token, role: user.role });
   } catch (error) {
-    console.error('[LOGIN] Error:', error);
+    logger.error('Login error', { email, error: error.message });
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
@@ -208,7 +275,7 @@ app.get('/products', async (_req, res) => {
     );
     res.json(rows.map(mapProduct));
   } catch (error) {
-    console.error('[PRODUCTS] Error:', error);
+    logger.error('Products fetch error', { error: error.message });
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
@@ -275,11 +342,11 @@ app.get('/products/search', async (req, res) => {
     sql += ' LIMIT ? OFFSET ?';
     params.push(limitNum, offsetNum);
 
-    console.log('[SEARCH] Query:', sql, 'Params:', params);
+    logger.debug('Product search', { sql, params });
     const rows = await query(sql, params);
     res.json(rows.map(mapProduct));
   } catch (error) {
-    console.error('[SEARCH] Error:', error);
+    logger.error('Search error', { error: error.message });
     res.status(500).json({ error: 'Search failed', details: error.message });
   }
 });
@@ -336,7 +403,7 @@ app.get('/products/suggestions', async (req, res) => {
 
     res.json(suggestions.slice(0, 10)); // Max 10 suggestions
   } catch (error) {
-    console.error('[SUGGESTIONS] Error:', error);
+    logger.error('Suggestions error', { error: error.message });
     res.status(500).json({ error: 'Failed to get suggestions', details: error.message });
   }
 });
@@ -435,13 +502,14 @@ app.put('/admin/products/:id', requireAuth, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Product not found after update' });
     }
 
-    console.log(`[UPDATE] Product ${id} updated successfully`);
+    logger.info('Product updated', { productId: id, name: products[0].name });
     res.json(mapProduct(products[0]));
   } catch (error) {
-    console.error('[UPDATE] Error:', error);
-    console.error('[UPDATE] Error message:', error.message);
-    console.error('[UPDATE] Error code:', error.code);
-    console.error('[UPDATE] Stack:', error.stack);
+    logger.error('Product update error', { 
+      productId: req.params.id,
+      error: error.message,
+      code: error.code
+    });
 
     // Check if it's a column error
     if (error.message && error.message.includes('Unknown column')) {
@@ -489,13 +557,14 @@ app.delete('/admin/products/:id', requireAuth, requireAdmin, async (req, res) =>
       }
     }
 
-    console.log(`[DELETE] Product ${id} deleted successfully`);
+    logger.info('Product deleted', { productId: id });
     res.json({ ok: true, message: 'Product deleted successfully' });
   } catch (error) {
-    console.error('[DELETE] Error:', error);
-    console.error('[DELETE] Error message:', error.message);
-    console.error('[DELETE] Error code:', error.code);
-    console.error('[DELETE] Stack:', error.stack);
+    logger.error('Product delete error', {
+      productId: req.params.id,
+      error: error.message,
+      code: error.code
+    });
 
     // Check if it's a column error
     if (error.message && error.message.includes('Unknown column')) {
@@ -524,14 +593,14 @@ app.post('/admin/upload', requireAuth, requireAdmin, upload.array('images', 10),
       return getImageUrl(file.filename);
     });
 
-    console.log(`[UPLOAD] Uploaded ${req.files.length} image(s)`);
+    logger.info('Images uploaded', { count: req.files.length });
     res.json({
       success: true,
       images: imageUrls,
       message: `Successfully uploaded ${req.files.length} image(s)`
     });
   } catch (error) {
-    console.error('[UPLOAD] Error:', error);
+    logger.error('Upload error', { error: error.message });
     res.status(500).json({ error: 'Upload failed', details: error.message });
   }
 });
@@ -545,14 +614,14 @@ app.post('/user/upload', requireAuth, upload.single('image'), (req, res) => {
 
     const imageUrl = getImageUrl(req.file.filename);
 
-    console.log(`[UPLOAD] User profile image uploaded: ${req.file.filename} by user ${req.user.userId}`);
+    logger.info('User profile image uploaded', { userId: req.user.userId, filename: req.file.filename });
     res.json({
       success: true,
       images: [imageUrl],
       message: 'Profile image uploaded successfully'
     });
   } catch (error) {
-    console.error('[UPLOAD] Error:', error);
+    logger.error('User profile upload error', { error: error.message });
     res.status(500).json({ error: 'Upload failed', details: error.message });
   }
 });
@@ -574,13 +643,13 @@ app.delete('/admin/upload/:filename', requireAuth, requireAdmin, (req, res) => {
     const deleted = deleteImageFile(filename);
 
     if (deleted) {
-      console.log(`[UPLOAD] Deleted image: ${filename}`);
+      logger.info('Image deleted', { filename });
       res.json({ success: true, message: 'Image deleted successfully' });
     } else {
       res.status(404).json({ error: 'Image not found' });
     }
   } catch (error) {
-    console.error('[UPLOAD] Delete error:', error);
+    logger.error('Image delete error', { filename: req.params.filename, error: error.message });
     res.status(500).json({ error: 'Delete failed', details: error.message });
   }
 });
@@ -1456,6 +1525,146 @@ app.post('/orders', orderCreationLimiter, async (req, res) => {
 
 // STEP 4: List Orders (for web admin and mobile app)
 // Admin can see all orders, regular users can only see their own orders
+app.get('/admin/orders/cancelled', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
+    const offset = (page - 1) * limit;
+
+    // Get total count
+    const [countResult] = await query(
+      'SELECT COUNT(*) as total FROM `Order` WHERE status = ?',
+      ['cancelled']
+    );
+    const total = countResult[0]?.total || 0;
+
+    // Get cancelled orders with customer and payment details
+    const orders = await query(
+      `SELECT 
+        o.id, o.orderNumber, o.status, o.total, o.subtotal,
+        o.customerName, o.customerPhone, o.paymentMethod,
+        o.createdAt, o.updatedAt,
+        COUNT(oi.id) as itemCount, SUM(oi.quantity) as totalItems
+      FROM \`Order\` o
+      LEFT JOIN OrderItem oi ON o.id = oi.orderId
+      WHERE o.status = 'cancelled'
+      GROUP BY o.id
+      ORDER BY o.updatedAt DESC
+      LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+
+    // Get history for each order to show reason for cancellation
+    const ordersWithReason = await Promise.all(
+      orders.map(async (order) => {
+        const history = await query(
+          'SELECT status, note, createdAt FROM OrderStatusHistory WHERE orderId = ? ORDER BY createdAt DESC LIMIT 1',
+          [order.id]
+        );
+        return {
+          ...order,
+          cancellationReason: history[0]?.note || 'Unknown reason',
+          cancelledAt: history[0]?.createdAt || order.updatedAt,
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: ordersWithReason,
+      pagination: {
+        page: page,
+        limit: limit,
+        total: total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('[ADMIN CANCELLED ORDERS] Error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Admin report: Timeout impact analysis
+app.get('/admin/orders/report/timeout-impact', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    // Find all auto-cancelled orders (those with 'Auto-cancelled: Payment timeout' in history)
+    const timeoutOrders = await query(
+      `SELECT 
+        o.id, o.orderNumber, o.total, o.subtotal, o.paymentMethod,
+        o.createdAt, o.updatedAt,
+        SUM(oi.quantity * oi.price) as value
+      FROM \`Order\` o
+      LEFT JOIN OrderItem oi ON o.id = oi.orderId
+      WHERE o.status = 'cancelled'
+      AND EXISTS (
+        SELECT 1 FROM OrderStatusHistory osh 
+        WHERE osh.orderId = o.id 
+        AND osh.note LIKE '%Payment timeout%'
+      )
+      GROUP BY o.id
+      ORDER BY o.createdAt DESC`
+    );
+
+    // Calculate metrics
+    const totalTimeoutOrders = timeoutOrders.length;
+    const totalLostRevenue = timeoutOrders.reduce((sum, order) => sum + (order.total || 0), 0);
+    const totalLostItems = timeoutOrders.reduce((sum, order) => sum + (order.totalItems || 0), 0);
+
+    // Group by payment method to see which methods have most timeouts
+    const byPaymentMethod = {};
+    for (const order of timeoutOrders) {
+      const method = order.paymentMethod || 'Unknown';
+      if (!byPaymentMethod[method]) {
+        byPaymentMethod[method] = { count: 0, revenue: 0 };
+      }
+      byPaymentMethod[method].count++;
+      byPaymentMethod[method].revenue += order.total || 0;
+    }
+
+    // Calculate average order value lost
+    const avgOrderValue = totalTimeoutOrders > 0 ? totalLostRevenue / totalTimeoutOrders : 0;
+
+    // Get last 30 days timeout trend
+    const last30Days = await query(
+      `SELECT 
+        DATE(o.createdAt) as date,
+        COUNT(*) as orderCount,
+        SUM(o.total) as revenue
+      FROM \`Order\` o
+      WHERE o.status = 'cancelled'
+      AND EXISTS (
+        SELECT 1 FROM OrderStatusHistory osh 
+        WHERE osh.orderId = o.id 
+        AND osh.note LIKE '%Payment timeout%'
+      )
+      AND o.createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      GROUP BY DATE(o.createdAt)
+      ORDER BY date DESC`
+    );
+
+    res.json({
+      success: true,
+      summary: {
+        totalTimeoutOrders: totalTimeoutOrders,
+        totalLostRevenue: Number(totalLostRevenue.toFixed(2)),
+        totalLostItems: totalLostItems,
+        averageOrderValue: Number(avgOrderValue.toFixed(2)),
+      },
+      byPaymentMethod: byPaymentMethod,
+      trend: {
+        last30Days: last30Days,
+        description: 'Orders lost to payment timeout in last 30 days'
+      }
+    });
+  } catch (error) {
+    console.error('[ADMIN TIMEOUT REPORT] Error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// STEP 4: List Orders (for web admin and mobile app)
+// Admin can see all orders, regular users can only see their own orders
 app.get('/orders', requireAuth, async (req, res) => {
   try {
     const { status, search, startDate, endDate, userId } = req.query;
@@ -1689,6 +1898,18 @@ app.get('/dashboard/stats', requireAuth, requireAdmin, async (req, res) => {
       'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
       ['delivered']
     );
+    const cancelledOrders = await query(
+      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
+      ['cancelled']
+    );
+    const expiredOrders = await query(
+      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
+      ['expired']
+    );
+    const failedOrders = await query(
+      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
+      ['failed']
+    );
 
     // Total orders count
     const totalOrders = await query('SELECT COUNT(*) as count FROM `Order`');
@@ -1716,6 +1937,9 @@ app.get('/dashboard/stats', requireAuth, requireAdmin, async (req, res) => {
         pending: pendingOrders[0]?.count || 0,
         processing: processingOrders[0]?.count || 0,
         delivered: deliveredOrders[0]?.count || 0,
+        cancelled: cancelledOrders[0]?.count || 0,
+        expired: expiredOrders[0]?.count || 0,
+        failed: failedOrders[0]?.count || 0,
       },
       revenue: {
         total: Number(revenueResult[0]?.total || 0),
@@ -2462,47 +2686,99 @@ app.post('/orders/:orderId/bakong-qr/regenerate', async (req, res) => {
 });
 
 // Helper function to check and mark expired Bakong orders
-// Note: Currently keeps orders as 'pending' but records expiration
-// To auto-cancel, add 'cancelled' status to Order.status ENUM
+// Automatically cancels expired orders and restores stock
 async function checkAndMarkExpiredOrders() {
+  let connection;
   try {
-    // Find pending Bakong orders older than 15 minutes
+    const expiryMinutes = parseInt(process.env.ORDER_EXPIRY_MINUTES) || 15;
+    
+    // Find pending Bakong orders older than expiry duration
     const expiredOrders = await query(
       `SELECT id, orderNumber, createdAt 
        FROM \`Order\` 
        WHERE paymentMethod = 'Bakong' 
        AND status = 'pending' 
-       AND status = 'pending' 
-       AND createdAt < DATE_SUB(NOW(), INTERVAL 15 MINUTE)`
+       AND createdAt < DATE_SUB(NOW(), INTERVAL ${expiryMinutes} MINUTE)`
     );
 
+    if (expiredOrders.length === 0) {
+      return 0;
+    }
+
+    console.log(`[CLEANUP] Found ${expiredOrders.length} expired order(s)`);
+
+    const { default: pool } = await import('./src/config/database.js');
+    let processedCount = 0;
+
     for (const expiredOrder of expiredOrders) {
-      // Check if we already recorded expiration
-      const existingHistory = await query(
-        'SELECT id FROM OrderStatusHistory WHERE orderId = ? AND note LIKE ? LIMIT 1',
-        [expiredOrder.id, '%expired%']
-      );
+      connection = await pool.getConnection();
+      
+      try {
+        await connection.beginTransaction();
+        console.log(`[CLEANUP] Processing order: ${expiredOrder.orderNumber} (${expiredOrder.id})`);
 
-      if (existingHistory.length === 0) {
-        // Record expiration in status history
-        await query(
-          'INSERT INTO OrderStatusHistory (orderId, status, note, createdAt) VALUES (?, ?, ?, NOW())',
-          [expiredOrder.id, 'expired', 'Payment QR code expired after 15 minutes.']
+        // Check if already processed (prevent duplicate processing)
+        const [statusCheck] = await connection.execute(
+          'SELECT status FROM `Order` WHERE id = ? LIMIT 1',
+          [expiredOrder.id]
         );
 
-        // Update main order status
-        await query(
+        if (statusCheck[0]?.status !== 'pending') {
+          console.log(`[CLEANUP] Order ${expiredOrder.orderNumber} already processed (status: ${statusCheck[0]?.status})`);
+          await connection.rollback();
+          connection.release();
+          continue;
+        }
+
+        // Get order items to restore stock
+        const [orderItems] = await connection.execute(
+          'SELECT productId, quantity, productName FROM OrderItem WHERE orderId = ?',
+          [expiredOrder.id]
+        );
+
+        // Restore stock for each item
+        for (const item of orderItems) {
+          if (item.productId && item.quantity > 0) {
+            await connection.execute(
+              'UPDATE Product SET stock = stock + ? WHERE id = ?',
+              [item.quantity, item.productId]
+            );
+            console.log(`[CLEANUP] Restored stock: ${item.quantity} units for product ${item.productId} (${item.productName})`);
+          }
+        }
+
+        // Update order status to cancelled
+        await connection.execute(
           'UPDATE `Order` SET status = ?, updatedAt = NOW() WHERE id = ?',
-          ['expired', expiredOrder.id]
+          ['cancelled', expiredOrder.id]
         );
 
-        console.log(`[BAKONG] Marked expired order: ${expiredOrder.orderNumber} (${expiredOrder.id})`);
+        // Record in status history (use 'pending' as status since OrderStatusHistory ENUM may not have 'cancelled')
+        await connection.execute(
+          'INSERT INTO OrderStatusHistory (orderId, status, note, createdAt) VALUES (?, ?, ?, NOW())',
+          [expiredOrder.id, 'pending', `Auto-cancelled: Payment timeout after ${expiryMinutes} minutes. Stock restored.`]
+        );
+
+        await connection.commit();
+        console.log(`[CLEANUP] Order ${expiredOrder.orderNumber} cancelled and stock restored`);
+        processedCount++;
+
+      } catch (error) {
+        console.error(`[CLEANUP] Error processing order ${expiredOrder.orderNumber}:`, error);
+        if (connection) {
+          await connection.rollback();
+        }
+      } finally {
+        if (connection) {
+          connection.release();
+        }
       }
     }
 
-    return expiredOrders.length;
+    console.log(`[CLEANUP] Completed: ${processedCount} order(s) processed`);
+    return processedCount;
   } catch (error) {
-    console.error('[BAKONG] Error checking expired orders:', error);
+    console.error('[CLEANUP] Error checking expired orders:', error);
     return 0;
   }
 }
@@ -2530,15 +2806,37 @@ app.get('/orders/:orderId/bakong-status', paymentStatusLimiter, async (req, res)
       // const expiryDuration = 1 * 60 * 1000; // 1 minute (For Testing)
 
       if (orderAge > expiryDuration) {
-        // Order expired - mark as expired
+        // Order expired - mark as cancelled and restore stock
+        try {
+          // Get order items to restore stock
+          const orderItems = await query(
+            'SELECT productId, quantity FROM OrderItem WHERE orderId = ?',
+            [order.id]
+          );
+
+          // Restore stock for each item
+          for (const item of orderItems) {
+            if (item.productId && item.quantity > 0) {
+              await query(
+                'UPDATE Product SET stock = stock + ? WHERE id = ?',
+                [item.quantity, item.productId]
+              );
+              console.log(`[BAKONG STATUS] Restored stock: ${item.quantity} units for product ${item.productId}`);
+            }
+          }
+        } catch (stockError) {
+          console.error('[BAKONG STATUS] Error restoring stock:', stockError);
+          // Continue with status update even if stock restoration fails
+        }
+
         await query(
           'UPDATE `Order` SET status = ?, updatedAt = NOW() WHERE id = ?',
-          ['expired', order.id]
+          ['cancelled', order.id]
         );
 
         await query(
           'INSERT INTO OrderStatusHistory (orderId, status, note, createdAt) VALUES (?, ?, ?, NOW())',
-          [order.id, 'expired', 'Payment QR code expired after 15 minutes.']
+          [order.id, 'pending', 'Payment timeout - order cancelled and stock restored.']
         );
 
         return res.json({
@@ -2546,9 +2844,9 @@ app.get('/orders/:orderId/bakong-status', paymentStatusLimiter, async (req, res)
           orderId: order.id,
           orderNumber: order.orderNumber,
           paymentStatus: 'expired',
-          orderStatus: 'expired', // Updated status
+          orderStatus: 'cancelled', // Updated status
           isExpired: true,
-          message: 'Payment QR code expired. Please regenerate QR code or contact support.'
+          message: 'Payment QR code expired. Order cancelled and items returned to stock.'
         });
       }
     }
@@ -2784,6 +3082,11 @@ app.post('/api/payments/bakong/webhook', async (req, res) => {
   }
 });
 
+// Sentry error handler (must be after all routes)
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+}
+
 const PORT = process.env.PORT || 4000;
 
 // Listen on all network interfaces (0.0.0.0) to allow connections from mobile devices
@@ -2797,4 +3100,24 @@ app.listen(PORT, '0.0.0.0', () => {
   if (!process.env.JWT_SECRET) {
     console.warn('WARNING: JWT_SECRET not set - authentication will fail');
   }
+
+  // Start automatic cleanup scheduler for expired orders
+  const cleanupIntervalMinutes = parseInt(process.env.CLEANUP_INTERVAL_MINUTES) || 5;
+  const expiryMinutes = parseInt(process.env.ORDER_EXPIRY_MINUTES) || 15;
+  
+  console.log(`[CLEANUP] Automatic order cleanup enabled`);
+  console.log(`[CLEANUP] Checking for expired orders every ${cleanupIntervalMinutes} minute(s)`);
+  console.log(`[CLEANUP] Orders expire after ${expiryMinutes} minute(s) of non-payment`);
+
+  // Run cleanup immediately on startup (after 30 seconds delay)
+  setTimeout(async () => {
+    console.log('[CLEANUP] Running initial cleanup check...');
+    await checkAndMarkExpiredOrders();
+  }, 30000);
+
+  // Schedule periodic cleanup
+  setInterval(async () => {
+    console.log('[CLEANUP] Running scheduled cleanup check...');
+    await checkAndMarkExpiredOrders();
+  }, cleanupIntervalMinutes * 60 * 1000);
 });

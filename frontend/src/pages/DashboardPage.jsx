@@ -11,6 +11,9 @@ export default function DashboardPage() {
     pendingOrders: 0,
     processingOrders: 0,
     deliveredOrders: 0,
+    cancelledOrders: 0,
+    expiredOrders: 0,
+    failedOrders: 0,
     recentOrders: 0,
     recentRevenue: 0,
   });
@@ -44,6 +47,9 @@ export default function DashboardPage() {
         pendingOrders: orderStats.orders?.pending || 0,
         processingOrders: orderStats.orders?.processing || 0,
         deliveredOrders: orderStats.orders?.delivered || 0,
+        cancelledOrders: orderStats.orders?.cancelled || 0,
+        expiredOrders: orderStats.orders?.expired || 0,
+        failedOrders: orderStats.orders?.failed || 0,
         recentOrders: orderStats.recentOrders || 0,
         recentRevenue: orderStats.revenue?.recent || 0,
       });
@@ -97,6 +103,12 @@ export default function DashboardPage() {
         return 'bg-blue-100 text-blue-700';
       case 'delivered':
         return 'bg-emerald-100 text-emerald-700';
+      case 'cancelled':
+        return 'bg-red-100 text-red-700';
+      case 'expired':
+        return 'bg-orange-100 text-orange-700';
+      case 'failed':
+        return 'bg-rose-100 text-rose-700';
       default:
         return 'bg-slate-100 text-slate-700';
     }
@@ -126,6 +138,31 @@ export default function DashboardPage() {
       value: stats.pendingOrders,
       icon: '⏳',
       color: 'bg-amber-500',
+    },
+    {
+      label: 'Delivered Orders',
+      value: stats.deliveredOrders,
+      icon: '✓',
+      color: 'bg-teal-500',
+    },
+    {
+      label: 'Cancelled Orders',
+      value: stats.cancelledOrders,
+      icon: '✕',
+      color: 'bg-red-500',
+      link: '/cancelled-orders',
+    },
+    {
+      label: 'Expired Orders',
+      value: stats.expiredOrders,
+      icon: '⏱️',
+      color: 'bg-orange-500',
+    },
+    {
+      label: 'Failed Orders',
+      value: stats.failedOrders,
+      icon: '⚠️',
+      color: 'bg-rose-500',
     },
     {
       label: 'Recent Orders (7d)',
@@ -162,7 +199,12 @@ export default function DashboardPage() {
           {statCards.map((stat, index) => (
             <div
               key={index}
-              className="bg-white border border-slate-200 rounded-xl shadow-sm p-6"
+              className={`bg-white border border-slate-200 rounded-xl shadow-sm p-6 ${stat.link ? 'cursor-pointer hover:shadow-md hover:border-slate-300 transition' : ''}`}
+              onClick={() => {
+                if (stat.link) {
+                  window.location.href = stat.link;
+                }
+              }}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -181,6 +223,9 @@ export default function DashboardPage() {
                   {stat.icon}
                 </div>
               </div>
+              {stat.link && (
+                <p className="text-xs text-indigo-600 mt-2 font-medium">View details →</p>
+              )}
             </div>
           ))}
         </div>

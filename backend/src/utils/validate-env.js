@@ -1,73 +1,126 @@
-// Validate .env file
-import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
+/**
+ * Environment Variable Validation
+ * Validates that all required environment variables are set before starting the server
+ */
 
-console.log('=== .env File Validation ===\n');
+/**
+ * Required environment variables that MUST be set
+ */
+const REQUIRED_VARS = [
+  'DATABASE_URL',
+  'JWT_SECRET',
+];
 
-// Check if .env file exists
-const envPath = path.join(process.cwd(), '.env');
-console.log('Looking for .env at:', envPath);
+/**
+ * Optional environment variables with warnings if not set
+ */
+const RECOMMENDED_VARS = {
+  'ALLOWED_ORIGINS': 'CORS will allow all origins (insecure for production)',
+  'BAKONG_ACCESS_TOKEN': 'Bakong payments will not work',
+  'BAKONG_MERCHANT_ID': 'Bakong payments will not work',
+  'SENTRY_DSN': 'Error tracking is disabled',
+  'NODE_ENV': 'Running in development mode',
+};
 
-if (!fs.existsSync(envPath)) {
-    console.error('❌ .env file does NOT exist!');
+/**
+ * Validates environment variables
+ * Exits process if required variables are missing
+ */
+export function validateEnv() {
+  console.log('[ENV] Validating environment variables...');
+  
+  const missing = [];
+  const warnings = [];
+
+  // Check required variables
+  for (const varName of REQUIRED_VARS) {
+    if (!process.env[varName]) {
+      missing.push(varName);
+    } else {
+      console.log(`[ENV] ✓ ${varName} is set`);
+    }
+  }
+
+  // Check recommended variables
+  for (const [varName, warning] of Object.entries(RECOMMENDED_VARS)) {
+    if (!process.env[varName]) {
+      warnings.push({ name: varName, warning });
+    } else {
+      console.log(`[ENV] ✓ ${varName} is set`);
+    }
+  }
+
+  // Report missing required variables
+  if (missing.length > 0) {
+    console.error('\n❌ CRITICAL: Missing required environment variables:');
+    for (const varName of missing) {
+      console.error(`   - ${varName}`);
+    }
+    console.error('\nPlease set these variables in your .env file.');
+    console.error('See .env.example for template.\n');
     process.exit(1);
+  }
+
+  // Report warnings for recommended variables
+  if (warnings.length > 0) {
+    console.warn('\n⚠️  WARNING: Missing recommended environment variables:');
+    for (const { name, warning } of warnings) {
+      console.warn(`   - ${name}: ${warning}`);
+    }
+    console.warn('');
+  }
+
+  // Validate JWT_SECRET strength in production
+  if (process.env.NODE_ENV === 'production') {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (jwtSecret.length < 32) {
+      console.error('\n❌ CRITICAL: JWT_SECRET is too short for production.');
+      console.error('   JWT_SECRET must be at least 32 characters long.');
+      console.error('   Generate a strong secret with: openssl rand -base64 32\n');
+      process.exit(1);
+    }
+    
+    // Check for common weak secrets
+    const weakSecrets = ['secret', 'password', 'changeme', 'your-super-secret'];
+    if (weakSecrets.some(weak => jwtSecret.toLowerCase().includes(weak))) {
+      console.error('\n❌ CRITICAL: JWT_SECRET appears to be a default/weak value.');
+      console.error('   Generate a strong secret with: openssl rand -base64 32\n');
+      process.exit(1);
+    }
+  }
+
+  // Validate DATABASE_URL format
+  if (process.env.DATABASE_URL) {
+    if (!process.env.DATABASE_URL.startsWith('mysql://')) {
+      console.error('\n❌ CRITICAL: DATABASE_URL must start with "mysql://"');
+      console.error('   Example: mysql://user:password@host:port/database\n');
+      process.exit(1);
+    }
+  }
+
+  console.log('[ENV] ✅ Environment validation passed\n');
 }
 
-console.log('✅ .env file exists\n');
-
-// Read .env file content
-const envContent = fs.readFileSync(envPath, 'utf-8');
-const lines = envContent.split('\n');
-
-console.log('=== .env File Contents ===');
-console.log(`Total lines: ${lines.length}\n`);
-
-// Show each line (masking secrets)
-lines.forEach((line, index) => {
-    const lineNum = (index + 1).toString().padStart(3, ' ');
-    if (line.trim().startsWith('#') || line.trim() === '') {
-        console.log(`${lineNum}: ${line}`);
-    } else if (line.includes('=')) {
-        const [key, ...valueParts] = line.split('=');
-        const value = valueParts.join('=');
-        const maskedValue = value.length > 10 ? value.substring(0, 10) + '...' : value;
-        console.log(`${lineNum}: ${key}=${maskedValue}`);
-    } else {
-        console.log(`${lineNum}: ${line}`);
-    }
-});
-
-console.log('\n=== Loading with dotenv ===');
-const result = dotenv.config();
-
-if (result.error) {
-    console.error('❌ Error loading .env:', result.error);
-    process.exit(1);
+/**
+ * Get environment variable with fallback
+ */
+export function getEnv(key, defaultValue = '') {
+  return process.env[key] || defaultValue;
 }
 
-console.log('✅ dotenv loaded successfully\n');
+/**
+ * Check if running in production mode
+ */
+export function isProduction() {
+  return process.env.NODE_ENV === 'production';
+}
 
-console.log('=== Environment Variables Loaded ===');
-const vonageKeys = ['VONAGE_API_KEY', 'VONAGE_API_SECRET', 'VONAGE_BRAND_NAME'];
-vonageKeys.forEach(key => {
-    const value = process.env[key];
-    if (value) {
-        const masked = value.length > 10 ? value.substring(0, 10) + '...' : value;
-        console.log(`✅ ${key}: ${masked}`);
-    } else {
-        console.log(`❌ ${key}: NOT SET`);
-    }
-});
-
-console.log('\n=== Summary ===');
-const allSet = vonageKeys.every(key => process.env[key]);
-if (allSet) {
-    console.log('✅ All Vonage credentials are set!');
-} else {
-    console.log('❌ Some Vonage credentials are missing!');
-    console.log('\nPlease add these lines to your .env file:');
-    console.log('VONAGE_API_KEY=05d308d3');
-    console.log('VONAGE_API_SECRET=48AJ0ME02DW3h6ZFfz9EyZZxlBHRzNYDYTihsNvoqPnMJlSQFl');
-    console.log('VONAGE_BRAND_NAME=ShopEase');
+/**
+ * Get numeric environment variable
+ */
+export function getEnvNumber(key, defaultValue = 0) {
+  const value = process.env[key];
+  if (!value) return defaultValue;
+  const num = parseInt(value, 10);
+  return isNaN(num) ? defaultValue : num;
 }

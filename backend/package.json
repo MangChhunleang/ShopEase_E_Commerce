@@ -9,7 +9,14 @@
     "init-db": "node scripts/init_db.js",
     "reset-db": "node scripts/reset_db.js",
     "list-users": "node scripts/list_users.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "migrate": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:reset": "prisma migrate reset",
+    "prisma:generate": "prisma generate",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "test:debug": "NODE_OPTIONS=--experimental-vm-modules node --inspect-brk node_modules/.bin/jest --runInBand"
   },
   "keywords": [
     "ecommerce",
@@ -24,6 +31,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@sentry/node": "^10.38.0",
     "@vonage/server-sdk": "^3.25.1",
     "axios": "^1.13.2",
     "bakong-khqr": "^1.0.20",
@@ -38,9 +46,16 @@
     "multer": "^2.0.2",
     "mysql2": "^3.15.3",
     "twilio": "^5.10.7",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "@prisma/client": "^5.22.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.11",
+    "prisma": "^5.22.0",
+    "supertest": "^7.2.2"
   }
 }

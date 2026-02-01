@@ -1,0 +1,116 @@
+# ============================================
+# ShopEase E-Commerce - Docker Compose
+# ============================================
+# Complete multi-service setup for development and production
+
+services:
+  # ============================================
+  # MySQL Database
+  # ============================================
+  database:
+    image: mysql:8.0
+    container_name: shopease_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-shopease}
+      MYSQL_USER: ${DB_USER:-shopease_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-shopease_password}
+    ports:
+      - "3307:3306"
+    volumes:
+      # Persist database data
+      - mysql_data:/var/lib/mysql
+      # Optional: Custom MySQL config
+      # - ./backend/mysql.cnf:/etc/mysql/conf.d/custom.cnf
+    networks:
+      - shopease_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # Backend API Server
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: shopease_backend
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 4000
+      DATABASE_URL: mysql://${DB_USER:-shopease_user}:${DB_PASSWORD:-shopease_password}@database:3306/${DB_NAME:-shopease}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      BASE_URL: ${BACKEND_BASE_URL:-http://localhost:4000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      DEBUG: ${DEBUG:-false}
+      # Bakong configuration
+      BAKONG_ACCESS_TOKEN: ${BAKONG_ACCESS_TOKEN:-}
+      BAKONG_MERCHANT_ID: ${BAKONG_MERCHANT_ID:-}
+      BAKONG_MERCHANT_NAME: ${BAKONG_MERCHANT_NAME:-ShopEase}
+      BAKONG_MERCHANT_CITY: ${BAKONG_MERCHANT_CITY:-Phnom Penh}
+      BAKONG_BASE_URL: ${BAKONG_BASE_URL:-https://api-bakong.nbc.gov.kh/v1}
+      # Order configuration
+      ORDER_EXPIRY_MINUTES: ${ORDER_EXPIRY_MINUTES:-15}
+      # Rate limiting
+      RATE_LIMIT_GENERAL: ${RATE_LIMIT_GENERAL:-100}
+      RATE_LIMIT_PAYMENT_STATUS: ${RATE_LIMIT_PAYMENT_STATUS:-20}
+      RATE_LIMIT_ORDER_CREATION: ${RATE_LIMIT_ORDER_CREATION:-5}
+      RATE_LIMIT_AUTH: ${RATE_LIMIT_AUTH:-10}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    volumes:
+      # Persist uploaded files
+      - uploads_data:/app/uploads
+      # Mount Firebase credentials (required for Firebase auth)
+      - ./backend/serviceAccountKey.json:/app/serviceAccountKey.json:ro
+    networks:
+      - shopease_network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # ============================================
+  # Frontend Admin Dashboard
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: shopease_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: ${BACKEND_BASE_URL:-http://localhost:4000}
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    networks:
+      - shopease_network
+
+# ============================================
+# Volumes (Persistent Data)
+# ============================================
+volumes:
+  mysql_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  shopease_network:
+    driver: bridge

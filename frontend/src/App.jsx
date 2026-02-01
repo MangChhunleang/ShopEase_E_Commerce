@@ -6,6 +6,8 @@ import ProductsPage from './pages/ProductsPage';
 import LoginPage from './pages/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
+import CancelledOrdersPage from './pages/CancelledOrdersPage';
+import ReportsPage from './pages/ReportsPage';
 import CategoriesPage from './pages/CategoriesPage';
 import UsersPage from './pages/UsersPage';
 import BannersPage from './pages/BannersPage';
@@ -41,6 +43,26 @@ function App() {
             <AdminRoute>
               <Layout>
                 <OrdersPage />
+              </Layout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/cancelled-orders"
+          element={
+            <AdminRoute>
+              <Layout>
+                <CancelledOrdersPage />
+              </Layout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <AdminRoute>
+              <Layout>
+                <ReportsPage />
               </Layout>
             </AdminRoute>
           }

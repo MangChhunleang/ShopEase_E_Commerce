@@ -15,6 +15,8 @@ import { validateEnv, isProduction } from './src/utils/validate-env.js';
 import logger from './src/utils/logger.js';
 import * as Sentry from '@sentry/node';
 import productsService from './src/services/products.service.js';
+import ordersService from './src/services/orders.service.js';
+import usersService from './src/services/users.service.js';
 
 // Load environment variables - suppress dotenv tips
 dotenv.config({ debug: false });
@@ -1655,85 +1657,56 @@ app.get('/admin/orders/report/timeout-impact', requireAuth, requireAdmin, async 
 
 // STEP 4: List Orders (for web admin and mobile app)
 // Admin can see all orders, regular users can only see their own orders
-app.get('/orders', requireAuth, async (req, res) => {
+app.get('/api/orders', requireAuth, async (req, res) => {
   try {
-    const { status, search, startDate, endDate, userId } = req.query;
+    const { status, search, startDate, endDate, userId: filterUserId, page = 1, limit = 20 } = req.query;
     const isAdmin = req.user.role === 'ADMIN';
 
-    // Build WHERE clause based on filters
-    let whereConditions = [];
-    let queryParams = [];
+    // Permission check
+    const userIdToFetch = isAdmin && filterUserId ? parseInt(filterUserId) : (isAdmin ? null : req.user.userId);
 
-    // Permission check: Regular users can only see their own orders
-    if (!isAdmin) {
-      // Regular users: only show orders where userId matches their own
-      if (req.user.userId) {
-        whereConditions.push('userId = ?');
-        queryParams.push(req.user.userId);
-      } else {
-        // User not logged in or no userId - return empty array
-        return res.json([]);
-      }
-    } else {
-      // Admin: can filter by userId if provided
-      if (userId) {
-        const userIdNum = Number(userId);
-        if (!isNaN(userIdNum)) {
-          whereConditions.push('userId = ?');
-          queryParams.push(userIdNum);
-        }
-      }
-    }
-
-    // Filter by status
-    if (status && ['pending', 'processing', 'delivered'].includes(status)) {
-      whereConditions.push('status = ?');
-      queryParams.push(status);
-    }
-
-    // Filter by date range
-    if (startDate) {
-      whereConditions.push('orderDate >= ?');
-      queryParams.push(startDate);
-    }
-    if (endDate) {
-      whereConditions.push('orderDate <= ?');
-      queryParams.push(endDate);
-    }
-
-    // Search by order number, customer name, or phone
-    if (search) {
-      whereConditions.push('(orderNumber LIKE ? OR customerName LIKE ? OR customerPhone LIKE ?)');
-      const searchPattern = `%${search}%`;
-      queryParams.push(searchPattern, searchPattern, searchPattern);
-    }
-
-    // Build query
-    let sql = 'SELECT * FROM `Order`';
-    if (whereConditions.length > 0) {
-      sql += ' WHERE ' + whereConditions.join(' AND ');
-    }
-    sql += ' ORDER BY orderDate DESC, id DESC';
-
-    console.log('[ORDERS] Fetching orders with query:', sql, 'params:', queryParams);
-    const orders = await query(sql, queryParams);
-
-    // Map each order with its items
-    const ordersWithItems = await Promise.all(
-      orders.map(order => mapOrder(order))
-    );
-
-    console.log(`[ORDERS] Returning ${ordersWithItems.length} orders`);
-    res.json(ordersWithItems);
-  } catch (error) {
-    console.error('[ORDERS] List error:', error);
-    console.error('[ORDERS] Error message:', error.message);
-    console.error('[ORDERS] Stack:', error.stack);
-
-    res.status(500).json({
-      error: 'Internal server error',
-      details: error.message
+    // ✅ OPTIMIZED: Single efficient query
+    const result = await ordersService.getOrdersList({
+      userId: userIdToFetch,
+      status,
+      search,
+      startDate,
+      endDate,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      isAdmin
     });
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Orders fetch error', { error: error.message });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Legacy endpoint for backward compatibility
+app.get('/orders', requireAuth, async (req, res) => {
+  try {
+    const { status, search, startDate, endDate, userId: filterUserId } = req.query;
+    const isAdmin = req.user.role === 'ADMIN';
+
+    const userIdToFetch = isAdmin && filterUserId ? parseInt(filterUserId) : (isAdmin ? null : req.user.userId);
+
+    const result = await ordersService.getOrdersList({
+      userId: userIdToFetch,
+      status,
+      search,
+      startDate,
+      endDate,
+      page: 1,
+      limit: 100,
+      isAdmin
+    });
+
+    res.json(result.data);
+  } catch (error) {
+    logger.error('Orders fetch error', { error: error.message });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 

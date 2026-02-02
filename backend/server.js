@@ -41,14 +41,22 @@ const app = express();
 
 // Sentry error tracking (optional)
 if (process.env.SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV || 'development',
-    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0),
-  });
+  try {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0),
+    });
 
-  app.use(Sentry.Handlers.requestHandler());
-  logger.info('Sentry initialized');
+    if (Sentry.Handlers) {
+      app.use(Sentry.Handlers.requestHandler());
+      logger.info('Sentry initialized');
+    } else {
+      logger.warn('Sentry Handlers not available - error tracking disabled');
+    }
+  } catch (error) {
+    logger.warn('Sentry initialization failed', { error: error.message });
+  }
 }
 
 // CORS configuration - secure for production
@@ -3085,8 +3093,12 @@ app.post('/api/payments/bakong/webhook', async (req, res) => {
 });
 
 // Sentry error handler (must be after all routes)
-if (process.env.SENTRY_DSN) {
-  app.use(Sentry.Handlers.errorHandler());
+if (process.env.SENTRY_DSN && Sentry.Handlers) {
+  try {
+    app.use(Sentry.Handlers.errorHandler());
+  } catch (error) {
+    logger.warn('Sentry error handler not available', { error: error.message });
+  }
 }
 
 const PORT = process.env.PORT || 4000;

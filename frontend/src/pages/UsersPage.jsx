@@ -382,7 +382,7 @@ export default function UsersPage() {
                         <div className="flex items-center justify-between mb-2">
                           <div>
                             <p className="font-medium text-slate-900">{order.orderNumber}</p>
-                            <p className="text-xs text-slate-500">{formatDate(order.orderDate)}</p>
+                            <p className="text-xs text-slate-500">{formatDate(order.orderDate || order.createdAt)}</p>
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-slate-900">{formatCurrency(order.total)}</p>

@@ -3,8 +3,23 @@ import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 
 const STATUSES = ['ACTIVE', 'ARCHIVED'];
+const imageFallback = `data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">' +
+    '<rect width="128" height="128" fill="#f1f5f9"/>' +
+    '<path d="M38 52h52v24H38z" fill="#cbd5f5"/>' +
+    '<circle cx="52" cy="52" r="6" fill="#94a3b8"/>' +
+    '<path d="M38 76l18-16 12 10 10-8 12 14H38z" fill="#94a3b8"/>' +
+  '</svg>'
+)}`;
 
 export default function ProductsPage() {
+  const apiBaseUrl = (api.defaults.baseURL || '').replace(/\/$/, '');
+  const resolveImageUrl = (url) => {
+    if (!url) return url;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
+    if (url.startsWith('/uploads')) return `${apiBaseUrl}${url}`;
+    return url;
+  };
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState({
@@ -325,9 +340,13 @@ export default function ProductsPage() {
                     <div key={idx} className="relative flex items-center gap-2 p-2 border border-slate-200 rounded-lg bg-slate-50">
                       <div className="relative flex-shrink-0">
                         <img 
-                          src={img} 
+                          src={resolveImageUrl(img)} 
                           alt={`Preview ${idx + 1}`} 
                           className="w-32 h-32 object-cover rounded border border-slate-200" 
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = imageFallback;
+                          }}
                         />
                         {idx === 0 && (
                           <span className="absolute top-0 left-0 bg-indigo-600 text-white text-xs px-1 rounded-br">Primary</span>
@@ -420,7 +439,15 @@ export default function ProductsPage() {
                       <td className="px-4 py-3 text-slate-700">{p.id}</td>
                       <td className="px-4 py-3">
                         {Array.isArray(p.images) && p.images.length > 0 ? (
-                          <img src={p.images[0]} alt={p.name} className="w-16 h-16 object-cover rounded border border-slate-200" />
+                          <img
+                            src={resolveImageUrl(p.images[0])}
+                            alt={p.name}
+                            className="w-16 h-16 object-cover rounded border border-slate-200"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = imageFallback;
+                            }}
+                          />
                         ) : (
                           <div className="w-16 h-16 bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-xs text-slate-400">No img</div>
                         )}

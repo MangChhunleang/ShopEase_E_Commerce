@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="ShopEase">
+  <rect width="64" height="64" rx="12" fill="#4f46e5" />
+  <path d="M18 22h28l-2 20a6 6 0 0 1-6 5H26a6 6 0 0 1-6-5l-2-20z" fill="#fff" />
+  <path d="M24 22a8 8 0 0 1 16 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" />
+</svg>

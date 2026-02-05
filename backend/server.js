@@ -1734,10 +1734,12 @@ app.get('/api/orders', requireAuth, async (req, res) => {
 // Legacy endpoint for backward compatibility
 app.get('/orders', requireAuth, async (req, res) => {
   try {
-    const { status, search, startDate, endDate, userId: filterUserId } = req.query;
+    const { status, search, startDate, endDate, userId: filterUserId, page = 1, limit = 100 } = req.query;
     const isAdmin = req.user.role === 'ADMIN';
 
     const userIdToFetch = isAdmin && filterUserId ? parseInt(filterUserId) : (isAdmin ? null : req.user.userId);
+    const safePage = Math.max(1, parseInt(page) || 1);
+    const safeLimit = Math.min(100, Math.max(1, parseInt(limit) || 100));
 
     const result = await ordersService.getOrdersList({
       userId: userIdToFetch,
@@ -1745,8 +1747,8 @@ app.get('/orders', requireAuth, async (req, res) => {
       search,
       startDate,
       endDate,
-      page: 1,
-      limit: 100,
+      page: safePage,
+      limit: safeLimit,
       isAdmin
     });
 
@@ -1891,6 +1893,66 @@ app.patch('/orders/:id/status', requireAuth, requireAdmin, async (req, res) => {
 
 // STEP 10: Dashboard Statistics (for web admin)
 // This endpoint requires admin authentication
+// Alias /stats to /dashboard/stats for convenience
+app.get('/stats', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    console.log('[DASHBOARD] Fetching statistics via /stats alias');
+    
+    // Count orders by status
+    const pendingOrders = await query(
+      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
+      ['pending']
+    );
+    const processingOrders = await query(
+      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
+      ['processing']
+    );
+    const deliveredOrders = await query(
+      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
+      ['delivered']
+    );
+    const cancelledOrders = await query(
+      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
+      ['cancelled']
+    );
+    const expiredOrders = await query(
+      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
+      ['expired']
+    );
+    const failedOrders = await query(
+      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
+      ['failed']
+    );
+
+    const totalOrders = await query('SELECT COUNT(*) as count FROM `Order`');
+    const totalProducts = await query('SELECT COUNT(*) as count FROM Product');
+    const totalUsers = await query('SELECT COUNT(*) as count FROM User');
+    
+    // Get total revenue
+    const revenueResult = await query(
+      'SELECT SUM(total) as revenue FROM `Order` WHERE status = ?',
+      ['delivered']
+    );
+
+    res.json({
+      totalOrders: totalOrders[0].count,
+      totalProducts: totalProducts[0].count,
+      totalUsers: totalUsers[0].count,
+      totalRevenue: revenueResult[0].revenue || 0,
+      pendingOrders: pendingOrders[0].count,
+      processingOrders: processingOrders[0].count,
+      deliveredOrders: deliveredOrders[0].count,
+      cancelledOrders: cancelledOrders[0].count,
+      expiredOrders: expiredOrders[0].count,
+      failedOrders: failedOrders[0].count,
+    });
+  } catch (error) {
+    console.error('[DASHBOARD] Error fetching stats:', error);
+    logger.error('Dashboard stats error', { error: error.message });
+    res.status(500).json({ message: 'Error fetching dashboard statistics' });
+  }
+});
+
 app.get('/dashboard/stats', requireAuth, requireAdmin, async (req, res) => {
   try {
     console.log('[DASHBOARD] Fetching statistics');
@@ -1932,12 +1994,12 @@ app.get('/dashboard/stats', requireAuth, requireAdmin, async (req, res) => {
 
     // Get recent orders count (last 7 days)
     const recentOrders = await query(
-      'SELECT COUNT(*) as count FROM `Order` WHERE orderDate >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
+      'SELECT COUNT(*) as count FROM `Order` WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
     );
 
     // Get recent revenue (last 7 days)
     const recentRevenueResult = await query(
-      'SELECT COALESCE(SUM(total), 0) as total FROM `Order` WHERE status = ? AND orderDate >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
+      'SELECT COALESCE(SUM(total), 0) as total FROM `Order` WHERE status = ? AND createdAt >= DATE_SUB(NOW(), INTERVAL 7 DAY)',
       ['delivered']
     );
 
@@ -2022,7 +2084,7 @@ app.get('/admin/users', requireAuth, requireAdmin, async (req, res) => {
 
         // Get last order date
         const lastOrder = await query(
-          'SELECT orderDate FROM `Order` WHERE userId = ? ORDER BY orderDate DESC LIMIT 1',
+          'SELECT createdAt as orderDate FROM `Order` WHERE userId = ? ORDER BY createdAt DESC LIMIT 1',
           [user.id]
         );
 
@@ -2031,7 +2093,6 @@ app.get('/admin/users', requireAuth, requireAdmin, async (req, res) => {
           orderCount: orderCount[0]?.count || 0,
           totalSpent: Number(totalSpent[0]?.total || 0),
           lastOrderDate: lastOrder[0]?.orderDate || null,
-          isActive: user.isActive === 1 || user.isActive === true,
         };
       })
     );
@@ -2062,7 +2123,7 @@ app.get('/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
 
     // Get order history
     const orders = await query(
-      'SELECT id, orderNumber, status, total, orderDate, createdAt FROM `Order` WHERE userId = ? ORDER BY orderDate DESC',
+      'SELECT id, orderNumber, status, total, createdAt as orderDate, createdAt FROM `Order` WHERE userId = ? ORDER BY createdAt DESC',
       [id]
     );
 
@@ -2113,11 +2174,11 @@ app.get('/admin/users/:id/orders', requireAuth, requireAdmin, async (req, res) =
 
     const orders = await query(
       `SELECT 
-        o.id, o.orderNumber, o.status, o.total, o.orderDate, o.createdAt,
+        o.id, o.orderNumber, o.status, o.total, o.createdAt as orderDate, o.createdAt,
         o.customerName, o.customerPhone, o.paymentMethod
       FROM \`Order\` o
       WHERE o.userId = ?
-      ORDER BY o.orderDate DESC`,
+      ORDER BY o.createdAt DESC`,
       [id]
     );
 

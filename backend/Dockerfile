@@ -41,6 +41,9 @@ LABEL maintainer="ShopEase Team"
 LABEL description="ShopEase E-Commerce Backend API"
 LABEL version="1.0.0"
 
+# Install OpenSSL for Prisma engine detection
+RUN apk add --no-cache openssl
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
@@ -52,6 +55,9 @@ COPY --from=base --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Copy application code
 COPY --chown=nodejs:nodejs . .
+
+# Generate Prisma client
+RUN npx prisma generate
 
 # Create directories with proper permissions
 RUN mkdir -p uploads/products uploads/banners logs && \

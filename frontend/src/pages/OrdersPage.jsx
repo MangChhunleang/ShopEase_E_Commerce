@@ -267,7 +267,7 @@ export default function OrdersPage() {
                           {formatCurrency(order.total)}
                         </td>
                         <td className="px-4 py-3 text-slate-700 text-xs">
-                          {formatDate(order.orderDate)}
+                          {formatDate(order.orderDate || order.createdAt)}
                         </td>
                         <td className="px-4 py-3 text-slate-700 text-xs">
                           {order.paymentMethod}
@@ -375,7 +375,7 @@ export default function OrdersPage() {
                       </div>
                       <div>
                         <span className="text-slate-500">Date:</span>
-                        <span className="ml-2 text-slate-900">{formatDate(orderDetails.orderDate)}</span>
+                        <span className="ml-2 text-slate-900">{formatDate(orderDetails.orderDate || orderDetails.createdAt)}</span>
                       </div>
                       <div>
                         <span className="text-slate-500">Payment Method:</span>

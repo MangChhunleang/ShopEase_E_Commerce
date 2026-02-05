@@ -2,9 +2,12 @@
 import axios from 'axios';
 import { getToken, clearToken } from './auth';
 
-// Hardcode backend base URL to avoid env misconfig
-const baseURL = 'http://localhost:4000';
+// Backend API URL - supports both development and production
+const baseURL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:4000' 
+  : `http://${window.location.hostname}:4000`;
 
+  
 export const api = axios.create({ baseURL });
 api.interceptors.request.use(config => {
   const token = getToken();

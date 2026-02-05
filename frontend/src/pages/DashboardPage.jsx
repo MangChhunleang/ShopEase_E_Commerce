@@ -31,27 +31,23 @@ export default function DashboardPage() {
       setLoading(true);
       setError('');
       
-      // Fetch products count
-      const productsRes = await api.get('/admin/products');
-      const totalProducts = productsRes.data.length;
-      
-      // Fetch dashboard statistics from orders
-      const statsRes = await api.get('/dashboard/stats');
-      const orderStats = statsRes.data;
+      // Fetch dashboard statistics
+      const statsRes = await api.get('/stats');
+      const data = statsRes.data;
       
       setStats({
-        totalProducts,
-        totalOrders: orderStats.orders?.total || 0,
-        totalRevenue: orderStats.revenue?.total || 0,
-        totalUsers: 0, // Users endpoint not implemented yet
-        pendingOrders: orderStats.orders?.pending || 0,
-        processingOrders: orderStats.orders?.processing || 0,
-        deliveredOrders: orderStats.orders?.delivered || 0,
-        cancelledOrders: orderStats.orders?.cancelled || 0,
-        expiredOrders: orderStats.orders?.expired || 0,
-        failedOrders: orderStats.orders?.failed || 0,
-        recentOrders: orderStats.recentOrders || 0,
-        recentRevenue: orderStats.revenue?.recent || 0,
+        totalProducts: data.totalProducts || 0,
+        totalOrders: data.totalOrders || 0,
+        totalRevenue: data.totalRevenue || 0,
+        totalUsers: data.totalUsers || 0,
+        pendingOrders: data.pendingOrders || 0,
+        processingOrders: data.processingOrders || 0,
+        deliveredOrders: data.deliveredOrders || 0,
+        cancelledOrders: data.cancelledOrders || 0,
+        expiredOrders: data.expiredOrders || 0,
+        failedOrders: data.failedOrders || 0,
+        recentOrders: 0,
+        recentRevenue: 0,
       });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load statistics');
@@ -278,7 +274,7 @@ export default function DashboardPage() {
                         {formatCurrency(order.total)}
                       </td>
                       <td className="px-4 py-3 text-slate-700 text-xs">
-                        {formatDate(order.orderDate)}
+                        {formatDate(order.orderDate || order.createdAt)}
                       </td>
                     </tr>
                   ))}

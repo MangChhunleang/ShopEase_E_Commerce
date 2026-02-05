@@ -60,11 +60,11 @@ export async function getOrdersList(options = {}) {
 
     // Filter by date range
     if (startDate) {
-      whereConditions.push('orderDate >= ?');
+      whereConditions.push('createdAt >= ?');
       queryParams.push(startDate);
     }
     if (endDate) {
-      whereConditions.push('orderDate <= ?');
+      whereConditions.push('createdAt <= ?');
       queryParams.push(endDate);
     }
 
@@ -89,10 +89,10 @@ export async function getOrdersList(options = {}) {
     const total = countResult[0]?.count || 0;
 
     // Get paginated orders
-    // ✅ OPTIMIZED: Uses indexes on userId, status, orderDate
+    // ✅ OPTIMIZED: Uses indexes on userId, status, createdAt
     const orders = await query(
       `SELECT * FROM \`Order\`${whereClause}
-       ORDER BY orderDate DESC, id DESC
+       ORDER BY createdAt DESC, id DESC
        LIMIT ? OFFSET ?`,
       [...queryParams, limit, skip]
     );

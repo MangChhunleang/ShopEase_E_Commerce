@@ -2,10 +2,73 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 import { verifyFirebaseToken } from '../services/firebase.service.js';
 import { query } from '../config/database.js';
 
 const router = express.Router();
+
+// Email/Password Login for Admin Dashboard
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required',
+        error: 'Email and password are required'
+      });
+    }
+
+    // Find user by email
+    const users = await query('SELECT * FROM User WHERE email = ? LIMIT 1', [email]);
+    const user = users[0];
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+        error: 'Invalid email or password'
+      });
+    }
+
+    // Verify password
+    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!passwordMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+        error: 'Invalid email or password'
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      token: token,
+      role: user.role,
+      userId: user.id,
+      email: user.email
+    });
+  } catch (error) {
+    console.error('Error in login:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: 'Internal server error'
+    });
+  }
+});
+
+// Firebase Phone Authentication Login
 
 router.post('/firebase-login', async (req, res) => {
   try {

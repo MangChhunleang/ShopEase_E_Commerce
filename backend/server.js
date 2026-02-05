@@ -39,6 +39,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Trust reverse proxy (Nginx) for correct IPs and rate limiting
+app.set('trust proxy', 1);
+
 // Sentry error tracking (optional)
 if (process.env.SENTRY_DSN) {
   try {

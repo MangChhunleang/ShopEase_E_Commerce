@@ -38,7 +38,9 @@ export async function getOrdersList(options = {}) {
     isAdmin = false
   } = options;
 
-  const skip = (page - 1) * limit;
+  const safePage = Number.isFinite(Number(page)) ? Number(page) : 1;
+  const safeLimit = Number.isFinite(Number(limit)) ? Number(limit) : 20;
+  const skip = (safePage - 1) * safeLimit;
   let whereConditions = [];
   let queryParams = [];
 
@@ -93,23 +95,23 @@ export async function getOrdersList(options = {}) {
     const orders = await query(
       `SELECT * FROM \`Order\`${whereClause}
        ORDER BY createdAt DESC, id DESC
-       LIMIT ? OFFSET ?`,
-      [...queryParams, limit, skip]
+       LIMIT ${Math.max(1, safeLimit)} OFFSET ${Math.max(0, skip)}`,
+      queryParams
     );
 
     logger.debug('Orders fetched', {
       count: orders.length,
       total,
-      page,
-      limit,
+      page: safePage,
+      limit: safeLimit,
       filters: { userId, status, search }
     });
 
     return {
       data: orders,
       pagination: {
-        page,
-        limit,
+        page: safePage,
+        limit: safeLimit,
         total,
         pages: Math.ceil(total / limit)
       }

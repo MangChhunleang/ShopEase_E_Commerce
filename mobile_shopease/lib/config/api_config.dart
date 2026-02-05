@@ -6,18 +6,18 @@ import 'package:flutter/foundation.dart';
 /// This file contains the base URL for the backend API.
 /// It automatically detects if running on Android Emulator or iOS Simulator.
 class ApiConfig {
-  // API base URL - points to Digital Ocean production server
+  // API base URL - points to Digital Ocean production server (Nginx on port 80)
   static String get apiBaseUrl {
     if (kIsWeb) {
-      return 'http://24.199.101.185:4000';
+      return 'http://24.199.101.185';
     }
     
     if (Platform.isAndroid) {
-      // Production server IP
-      return 'http://24.199.101.185:4000';
+      // Production server IP (Nginx reverse proxy on port 80)
+      return 'http://24.199.101.185';
     } else {
-      // iOS simulator
-      return 'http://24.199.101.185:4000';
+      // iOS simulator (Nginx reverse proxy on port 80)
+      return 'http://24.199.101.185';
     }
   }
   

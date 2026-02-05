@@ -132,6 +132,20 @@ async function seed() {
 
       const orderId = orderResult.insertId;
 
+      let productImage = null;
+      if (firstProduct.images) {
+        if (typeof firstProduct.images === 'string') {
+          try {
+            const parsed = JSON.parse(firstProduct.images);
+            productImage = Array.isArray(parsed) ? parsed[0] : null;
+          } catch (err) {
+            productImage = firstProduct.images;
+          }
+        } else if (Array.isArray(firstProduct.images)) {
+          productImage = firstProduct.images[0];
+        }
+      }
+
       await conn.query(
         `INSERT INTO OrderItem
          (orderId, productId, productName, productImage, price, quantity, color, offer, createdAt)
@@ -140,7 +154,7 @@ async function seed() {
           orderId,
           firstProduct.id,
           firstProduct.name,
-          firstProduct.images ? JSON.parse(firstProduct.images)[0] : null,
+          productImage,
           price,
           quantity,
           firstProduct.color || null,

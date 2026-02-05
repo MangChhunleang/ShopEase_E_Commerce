@@ -114,29 +114,26 @@ class AuthService extends ChangeNotifier {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      if (data['success'] == true) {
-        final token = data['token'];
-        final role = data['role'];
-        final userId = data['userId']?.toString();
-        final phone = data['phoneNumber'];
+      // Backend returns: { token, role, userId }
+      final token = data['token'];
+      final role = data['role'];
+      final userId = data['userId']?.toString();
+      final phone = data['phoneNumber'];
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_tokenKey, token);
-        await prefs.setString(_roleKey, role);
-        if (userId != null) {
-          await prefs.setString(_authKey, userId);
-        }
-        await prefs.setString(_phoneKey, phone);
-
-        _token = token;
-        _role = role;
-        _currentUserId = userId;
-        _currentPhoneNumber = phone;
-
-        notifyListeners();
-      } else {
-        throw Exception(data['message'] ?? 'Backend login failed');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, token);
+      await prefs.setString(_roleKey, role);
+      if (userId != null) {
+        await prefs.setString(_authKey, userId);
       }
+      await prefs.setString(_phoneKey, phone);
+
+      _token = token;
+      _role = role;
+      _currentUserId = userId;
+      _currentPhoneNumber = phone;
+
+      notifyListeners();
     } else {
       throw Exception('Backend error: ${response.statusCode}');
     }

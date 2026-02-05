@@ -17,8 +17,7 @@ import * as Sentry from '@sentry/node';
 import productsService from './src/services/products.service.js';
 import ordersService from './src/services/orders.service.js';
 import usersService from './src/services/users.service.js';
-import productsCachedService from './src/services/products-cached.service.js';
-import { cache } from './src/services/cacheService.js';
+// Redis/Caching disabled - removed for simplified deployment
 
 // Load environment variables - suppress dotenv tips
 dotenv.config({ debug: false });
@@ -3164,10 +3163,7 @@ if (process.env.SENTRY_DSN && Sentry.Handlers) {
 
 const PORT = process.env.PORT || 4000;
 
-// Initialize Redis cache (with graceful degradation if unavailable)
-(async () => {
-  await cache.init();
-})();
+// Redis caching disabled
 
 // Listen on all network interfaces (0.0.0.0) to allow connections from mobile devices
 app.listen(PORT, '0.0.0.0', () => {

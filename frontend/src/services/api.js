@@ -2,10 +2,8 @@
 import axios from 'axios';
 import { getToken, clearToken } from './auth';
 
-// Backend API URL - supports both development and production
-const baseURL = window.location.hostname === 'localhost' 
-  ? 'http://localhost:4000' 
-  : `http://${window.location.hostname}:4000`;
+// Backend API URL - use relative paths to go through Nginx proxy
+const baseURL = '/api';
 
   
 export const api = axios.create({ baseURL });

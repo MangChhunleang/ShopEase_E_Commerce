@@ -6,19 +6,18 @@ import 'package:flutter/foundation.dart';
 /// This file contains the base URL for the backend API.
 /// It automatically detects if running on Android Emulator or iOS Simulator.
 class ApiConfig {
-  // API base URL - automatically detected based on platform
+  // API base URL - points to Digital Ocean production server
   static String get apiBaseUrl {
     if (kIsWeb) {
-      return 'http://localhost:4000';
+      return 'http://24.199.101.185:4000';
     }
     
     if (Platform.isAndroid) {
-      // 10.0.2.2 is the special alias to your host loopback interface (127.0.0.1)
-      // on the Android emulator.
-      return 'http://10.0.2.2:4000';
+      // Production server IP
+      return 'http://24.199.101.185:4000';
     } else {
-      // working on iOS simulator
-      return 'http://localhost:4000';
+      // iOS simulator
+      return 'http://24.199.101.185:4000';
     }
   }
   

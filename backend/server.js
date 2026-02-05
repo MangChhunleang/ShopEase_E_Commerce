@@ -1924,69 +1924,9 @@ app.patch('/orders/:id/status', requireAuth, requireAdmin, async (req, res) => {
 
 // STEP 10: Dashboard Statistics (for web admin)
 // This endpoint requires admin authentication
-// Alias /stats to /dashboard/stats for convenience
-app.get('/stats', requireAuth, requireAdmin, async (req, res) => {
+const handleDashboardStats = async (req, res, source = 'dashboard') => {
   try {
-    console.log('[DASHBOARD] Fetching statistics via /stats alias');
-    
-    // Count orders by status
-    const pendingOrders = await query(
-      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
-      ['pending']
-    );
-    const processingOrders = await query(
-      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
-      ['processing']
-    );
-    const deliveredOrders = await query(
-      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
-      ['delivered']
-    );
-    const cancelledOrders = await query(
-      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
-      ['cancelled']
-    );
-    const expiredOrders = await query(
-      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
-      ['expired']
-    );
-    const failedOrders = await query(
-      'SELECT COUNT(*) as count FROM `Order` WHERE status = ?',
-      ['failed']
-    );
-
-    const totalOrders = await query('SELECT COUNT(*) as count FROM `Order`');
-    const totalProducts = await query('SELECT COUNT(*) as count FROM Product');
-    const totalUsers = await query('SELECT COUNT(*) as count FROM User');
-    
-    // Get total revenue
-    const revenueResult = await query(
-      'SELECT SUM(total) as revenue FROM `Order` WHERE status = ?',
-      ['delivered']
-    );
-
-    res.json({
-      totalOrders: totalOrders[0].count,
-      totalProducts: totalProducts[0].count,
-      totalUsers: totalUsers[0].count,
-      totalRevenue: revenueResult[0].revenue || 0,
-      pendingOrders: pendingOrders[0].count,
-      processingOrders: processingOrders[0].count,
-      deliveredOrders: deliveredOrders[0].count,
-      cancelledOrders: cancelledOrders[0].count,
-      expiredOrders: expiredOrders[0].count,
-      failedOrders: failedOrders[0].count,
-    });
-  } catch (error) {
-    console.error('[DASHBOARD] Error fetching stats:', error);
-    logger.error('Dashboard stats error', { error: error.message });
-    res.status(500).json({ message: 'Error fetching dashboard statistics' });
-  }
-});
-
-app.get('/dashboard/stats', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    console.log('[DASHBOARD] Fetching statistics');
+    console.log(`[DASHBOARD] Fetching statistics via ${source}`);
 
     // Count orders by status
     const pendingOrders = await query(
@@ -2063,6 +2003,19 @@ app.get('/dashboard/stats', requireAuth, requireAdmin, async (req, res) => {
       details: error.message
     });
   }
+};
+
+// Alias /stats and /api/stats to /dashboard/stats for convenience
+app.get('/stats', requireAuth, requireAdmin, async (req, res) => {
+  await handleDashboardStats(req, res, '/stats');
+});
+
+app.get('/api/stats', requireAuth, requireAdmin, async (req, res) => {
+  await handleDashboardStats(req, res, '/api/stats');
+});
+
+app.get('/dashboard/stats', requireAuth, requireAdmin, async (req, res) => {
+  await handleDashboardStats(req, res, '/dashboard/stats');
 });
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================

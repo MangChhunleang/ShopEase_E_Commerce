@@ -18,6 +18,7 @@ import productsService from './src/services/products.service.js';
 import ordersService from './src/services/orders.service.js';
 import usersService from './src/services/users.service.js';
 // Redis/Caching disabled - removed for simplified deployment
+import { getProductsList, searchProducts, getProductSuggestions } from './src/services/products.service.js';
 
 // Load environment variables - suppress dotenv tips
 dotenv.config({ debug: false });
@@ -172,21 +173,13 @@ app.get('/ready', async (req, res) => {
   }
 });
 
-// Cache stats endpoint - for monitoring cache performance
+// Cache stats endpoint - disabled (Redis removed)
 app.get('/cache/stats', async (req, res) => {
-  try {
-    const stats = await cache.getStats();
-    res.status(200).json({
-      cache: stats,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    logger.error('Cache stats error', { error: error.message });
-    res.status(500).json({
-      error: 'Failed to get cache stats',
-      details: error.message
-    });
-  }
+  res.status(200).json({
+    cache: 'Disabled',
+    message: 'Redis caching has been removed for simplified deployment',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Serve static files (uploaded images)
@@ -302,7 +295,7 @@ app.get('/api/products', async (req, res) => {
   try {
     const { page = 1, limit = 20, category } = req.query;
     
-    const result = await productsCachedService.getProductsList({
+    const result = await getProductsList({
       page: parseInt(page),
       limit: parseInt(limit),
       category: category || null
@@ -319,7 +312,7 @@ app.get('/api/products', async (req, res) => {
 // Legacy endpoint for backward compatibility
 app.get('/products', async (_req, res) => {
   try {
-    const result = await productsCachedService.getProductsList({ limit: 100 });
+    const result = await getProductsList({ limit: 100 });
     res.json(result.data);
   } catch (error) {
     logger.error('Products fetch error', { error: error.message });
@@ -342,7 +335,7 @@ app.get('/api/products/search', async (req, res) => {
       limit = 20
     } = req.query;
 
-    const result = await productsCachedService.searchProducts({
+    const result = await searchProducts({
       query: q,
       category,
       minPrice: minPrice ? parseFloat(minPrice) : null,
@@ -374,7 +367,7 @@ app.get('/products/search', async (req, res) => {
 
     const page = Math.floor(parseInt(offset) / parseInt(limit)) + 1;
     
-    const result = await productsCachedService.searchProducts({
+    const result = await searchProducts({
       query: q,
       category,
       minPrice: minPrice ? parseFloat(minPrice) : null,
@@ -400,8 +393,7 @@ app.get('/api/products/suggestions', async (req, res) => {
       return res.json([]);
     }
 
-    const suggestions = await productsCachedService.getProductSuggestions(q.trim(), 10);
-    res.json(suggestions);
+    const suggestions = await getProductSuggestions(q.trim(), 10);
   } catch (error) {
     logger.error('Suggestions error', { error: error.message });
     res.status(500).json({ error: 'Failed to get suggestions' });
@@ -416,7 +408,7 @@ app.get('/products/suggestions', async (req, res) => {
       return res.json([]);
     }
 
-    const suggestions = await productsCachedService.getProductSuggestions(q.trim(), 10);
+    const suggestions = await getProductSuggestions(q.trim(), 10);
     const formatted = suggestions.map(s => ({
       text: s.name,
       category: s.category,
@@ -465,7 +457,7 @@ app.post('/admin/products', requireAuth, requireAdmin, async (req, res) => {
   const [product] = await query('SELECT * FROM Product WHERE id = ? LIMIT 1', [insertedId]);
   
   // ✅ CACHE INVALIDATION: Clear caches after product creation
-  await productsCachedService.invalidateProductCache(insertedId);
+  // Cache invalidation disabled - Redis removed
   
   res.status(201).json(mapProduct(product));
 });
@@ -530,7 +522,7 @@ app.put('/admin/products/:id', requireAuth, requireAdmin, async (req, res) => {
     logger.info('Product updated', { productId: id, name: products[0].name });
     
     // ✅ CACHE INVALIDATION: Clear caches after product update
-    await productsCachedService.invalidateProductCache(id);
+    await invalidateProductCache(id);
     
     res.json(mapProduct(products[0]));
   } catch (error) {
@@ -562,7 +554,7 @@ app.patch('/admin/products/:id/status', requireAuth, requireAdmin, async (req, r
   );
   
   // ✅ CACHE INVALIDATION: Clear caches after status change
-  await productsCachedService.invalidateProductCache(productId);
+  // Cache invalidation disabled - Redis removed
   
   res.json({ ok: true });
 });
@@ -594,7 +586,7 @@ app.delete('/admin/products/:id', requireAuth, requireAdmin, async (req, res) =>
     logger.info('Product deleted', { productId: id });
     
     // ✅ CACHE INVALIDATION: Clear caches after product deletion
-    await productsCachedService.invalidateProductCache(id);
+    await invalidateProductCache(id);
     
     res.json({ ok: true, message: 'Product deleted successfully' });
   } catch (error) {

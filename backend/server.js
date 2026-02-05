@@ -2024,7 +2024,7 @@ app.get('/dashboard/stats', requireAuth, requireAdmin, async (req, res) => {
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
 // Admin endpoint: Get all users
-app.get('/admin/users', requireAuth, requireAdmin, async (req, res) => {
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { role, search, isActive } = req.query;
 
@@ -2092,7 +2092,7 @@ app.get('/admin/users', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Admin endpoint: Get user details with order history
-app.get('/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+app.get('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) {
@@ -2146,7 +2146,7 @@ app.get('/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Admin endpoint: Get user's order history
-app.get('/admin/users/:id/orders', requireAuth, requireAdmin, async (req, res) => {
+app.get('/api/admin/users/:id/orders', requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) {
@@ -2191,7 +2191,7 @@ app.get('/admin/users/:id/orders', requireAuth, requireAdmin, async (req, res) =
 });
 
 // Admin endpoint: Update user status (activate/deactivate)
-app.patch('/admin/users/:id/status', requireAuth, requireAdmin, async (req, res) => {
+app.patch('/api/admin/users/:id/status', requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) {

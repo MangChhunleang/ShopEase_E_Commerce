@@ -286,6 +286,46 @@ app.post('/auth/login', generalLimiter, async (req, res) => {
   }
 });
 
+// Firebase token login endpoint - for mobile app
+app.post('/auth/firebase-login', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    
+    if (!idToken) {
+      return res.status(400).json({ error: 'ID token required' });
+    }
+
+    // Verify Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const firebaseUid = decodedToken.uid;
+    const email = decodedToken.email || `firebase_${firebaseUid}@shopease.local`;
+    const phoneNumber = decodedToken.phone_number || null;
+
+    // Check if user exists in database
+    let userRows = await query('SELECT * FROM User WHERE email = ? LIMIT 1', [email]);
+    let user = userRows[0];
+
+    // Create user if doesn't exist (first-time login)
+    if (!user) {
+      await query(
+        'INSERT INTO User (email, passwordHash, phoneNumber, role, isActive) VALUES (?, ?, ?, ?, ?)',
+        [email, await bcrypt.hash(firebaseUid, 10), phoneNumber, 'USER', true]
+      );
+      userRows = await query('SELECT * FROM User WHERE email = ? LIMIT 1', [email]);
+      user = userRows[0];
+    }
+
+    // Generate JWT token for the user
+    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    
+    logger.logAuth('FIREBASE_LOGIN', email, true, `Firebase UID: ${firebaseUid}`);
+    res.json({ token, role: user.role, userId: user.id });
+  } catch (error) {
+    logger.error('Firebase login error', { error: error.message });
+    res.status(401).json({ error: 'Firebase authentication failed', details: error.message });
+  }
+});
+
 app.get('/me', requireAuth, (req, res) => res.json({ userId: req.user.userId, role: req.user.role }));
 
 // Public products endpoint for customers (only active products)

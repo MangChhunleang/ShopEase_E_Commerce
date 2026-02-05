@@ -12,15 +12,16 @@ async function seed() {
     // Ensure sample customer exists
     const customerEmail = 'customer@example.com';
     const customerPassword = 'Customer123!';
-    let [existingCustomer] = await conn.query(
+    const [customerRows] = await conn.query(
       'SELECT id FROM User WHERE email = ? LIMIT 1',
       [customerEmail]
     );
 
+    const existingCustomer = customerRows[0];
     let customerId = existingCustomer?.id;
     if (!customerId) {
       const hash = await bcrypt.hash(customerPassword, 10);
-      const result = await conn.query(
+      const [result] = await conn.query(
         `INSERT INTO User (email, passwordHash, role, isActive, createdAt, updatedAt)
          VALUES (?, ?, 'USER', TRUE, NOW(), NOW())`,
         [customerEmail, hash]
@@ -30,7 +31,8 @@ async function seed() {
     }
 
     // Seed products if empty
-    const [productCountRow] = await conn.query('SELECT COUNT(*) as count FROM Product');
+    const [productCountRows] = await conn.query('SELECT COUNT(*) as count FROM Product');
+    const productCountRow = productCountRows[0];
     if ((productCountRow?.count || 0) === 0) {
       const sampleProducts = [
         {
@@ -91,21 +93,24 @@ async function seed() {
     }
 
     // Seed a sample order if empty
-    const [orderCountRow] = await conn.query('SELECT COUNT(*) as count FROM `Order`');
+    const [orderCountRows] = await conn.query('SELECT COUNT(*) as count FROM `Order`');
+    const orderCountRow = orderCountRows[0];
     if ((orderCountRow?.count || 0) === 0) {
-      const [firstProduct] = await conn.query('SELECT * FROM Product ORDER BY id ASC LIMIT 1');
+      const [productRows] = await conn.query('SELECT * FROM Product ORDER BY id ASC LIMIT 1');
+      const firstProduct = productRows[0];
       if (!firstProduct) {
         console.log('⚠️ No products found to create sample order');
         return;
       }
 
       const quantity = 2;
-      const subtotal = Number(firstProduct.price) * quantity;
+      const price = Number.parseFloat(firstProduct.price);
+      const subtotal = Number.isFinite(price) ? price * quantity : 0;
       const shipping = 2.5;
       const total = subtotal + shipping;
       const orderNumber = `ORD-${Date.now()}`;
 
-      const orderResult = await conn.query(
+      const [orderResult] = await conn.query(
         `INSERT INTO \`Order\`
          (orderNumber, customerName, customerPhone, customerAddress, customerCity, customerDistrict, paymentMethod, status, subtotal, shipping, total, userId, orderDate, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())`,
@@ -136,7 +141,7 @@ async function seed() {
           firstProduct.id,
           firstProduct.name,
           firstProduct.images ? JSON.parse(firstProduct.images)[0] : null,
-          firstProduct.price,
+          price,
           quantity,
           firstProduct.color || null,
           firstProduct.offer || null

@@ -34,13 +34,17 @@ class _CategoriesPageState extends State<CategoriesPage> {
     super.initState();
     _categoryService.addListener(_onCategoriesChanged);
     _bannerService.addListener(_onBannersChanged);
-    // Load cached data first, then fetch from API
-    _categoryService.loadCachedCategories();
-    _categoryService.fetchCategories();
-    _bannerService.loadCachedBanners();
-    _bannerService.fetchBanners(type: 'category');
-    // Defer timer until after first frame so controller is attached
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startCarouselTimer());
+    // Defer loading and timers until after first frame to avoid
+    // setState/notifyListeners during the initial build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Load cached data first, then fetch from API
+      _categoryService.loadCachedCategories();
+      _categoryService.fetchCategories();
+      _bannerService.loadCachedBanners();
+      _bannerService.fetchBanners(type: 'category');
+      _startCarouselTimer();
+    });
   }
 
   @override
@@ -52,18 +56,25 @@ class _CategoriesPageState extends State<CategoriesPage> {
   }
 
   void _onCategoriesChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    // Schedule UI updates after the current frame to avoid
+    // "setState() called during build" assertions.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   void _onBannersChanged() {
-    if (mounted) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       setState(() {});
       if (_bannerService.categoryBanners.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _startCarouselTimer(),
-        );
+        _startCarouselTimer();
       }
-    }
+    });
   }
 
   void _startCarouselTimer() {

@@ -101,10 +101,12 @@ class CategoryService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      debugPrint('Fetching categories from: $_apiBaseUrl/categories');
+      // Use the API base URL (includes /api in production)
+      final url = '$_apiBaseUrl/categories';
+      debugPrint('Fetching categories from: $url');
 
       final response = await http.get(
-        Uri.parse('$_apiBaseUrl/categories'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       ).timeout(
         const Duration(seconds: 10),

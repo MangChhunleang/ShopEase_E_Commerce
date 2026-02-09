@@ -840,6 +840,19 @@ app.get('/categories/:parentId/subcategories', async (req, res) => {
   }
 });
 
+// Public API endpoint (with /api prefix) for categories - used by mobile app
+app.get('/api/categories', async (_req, res) => {
+  try {
+    const rows = await query('SELECT * FROM Category ORDER BY parentCategoryId ASC, name ASC');
+
+    // Return flat list for backward compatibility, but include parentCategoryId
+    res.json(rows);
+  } catch (error) {
+    console.error('[CATEGORIES] Error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 // Admin endpoint: Get all categories
 const getAdminCategories = async (_req, res) => {
   try {

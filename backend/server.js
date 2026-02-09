@@ -1050,7 +1050,7 @@ const mapBanner = (row) => {
 };
 
 // Public endpoint: Get active banners (for mobile app)
-app.get('/banners', async (req, res) => {
+async function getPublicBanners(req, res) {
   try {
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const { type } = req.query;
@@ -1078,7 +1078,11 @@ app.get('/banners', async (req, res) => {
     console.error('[BANNERS] Error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
-});
+}
+
+// Expose banners both at root ('/banners') and under '/api' for mobile clients
+app.get('/banners', getPublicBanners);
+app.get('/api/banners', getPublicBanners);
 
 // Admin endpoint: Get all banners
 const getAdminBanners = async (_req, res) => {

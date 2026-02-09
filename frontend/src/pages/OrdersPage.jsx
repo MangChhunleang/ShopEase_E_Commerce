@@ -23,7 +23,8 @@ export default function OrdersPage() {
         params.status = statusFilter;
       }
       const { data } = await api.get('/orders', { params });
-      setOrders(data);
+      const ordersList = Array.isArray(data) ? data : (data?.data ?? []);
+      setOrders(ordersList);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load orders');
       console.error('Error loading orders:', err);

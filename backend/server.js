@@ -13,7 +13,6 @@ import { upload, uploadBanner, getImageUrl, getBannerUrl, deleteImageFile, delet
 import bakongService from './src/services/bakong.service.js';
 import { validateEnv, isProduction } from './src/utils/validate-env.js';
 import logger from './src/utils/logger.js';
-import * as Sentry from '@sentry/node';
 import productsService from './src/services/products.service.js';
 import ordersService from './src/services/orders.service.js';
 import usersService from './src/services/users.service.js';
@@ -41,26 +40,6 @@ const app = express();
 
 // Trust reverse proxy (Nginx) for correct IPs and rate limiting
 app.set('trust proxy', 1);
-
-// Sentry error tracking (optional)
-if (process.env.SENTRY_DSN) {
-  try {
-    Sentry.init({
-      dsn: process.env.SENTRY_DSN,
-      environment: process.env.NODE_ENV || 'development',
-      tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0),
-    });
-
-    if (Sentry.Handlers) {
-      app.use(Sentry.Handlers.requestHandler());
-      logger.info('Sentry initialized');
-    } else {
-      logger.warn('Sentry Handlers not available - error tracking disabled');
-    }
-  } catch (error) {
-    logger.warn('Sentry initialization failed', { error: error.message });
-  }
-}
 
 // CORS configuration - secure for production
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -465,10 +444,12 @@ app.get('/products/suggestions', async (req, res) => {
 });
 
 // Admin products endpoint (all products including archived)
-app.get('/admin/products', requireAuth, requireAdmin, async (_req, res) => {
+const getAdminProducts = async (_req, res) => {
   const rows = await query('SELECT * FROM Product ORDER BY updatedAt DESC');
   res.json(rows.map(mapProduct));
-});
+};
+app.get('/admin/products', requireAuth, requireAdmin, getAdminProducts);
+app.get('/api/admin/products', requireAuth, requireAdmin, getAdminProducts);
 
 app.post('/admin/products', requireAuth, requireAdmin, async (req, res) => {
   const { name, description = '', price, stock = 0, status = 'ACTIVE', images = [], category = null } = req.body ?? {};
@@ -858,7 +839,7 @@ app.get('/categories/:parentId/subcategories', async (req, res) => {
 });
 
 // Admin endpoint: Get all categories
-app.get('/admin/categories', requireAuth, requireAdmin, async (_req, res) => {
+const getAdminCategories = async (_req, res) => {
   try {
     const rows = await query('SELECT * FROM Category ORDER BY parentCategoryId ASC, name ASC');
     res.json(rows);
@@ -866,7 +847,9 @@ app.get('/admin/categories', requireAuth, requireAdmin, async (_req, res) => {
     console.error('[CATEGORIES] Error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
-});
+};
+app.get('/admin/categories', requireAuth, requireAdmin, getAdminCategories);
+app.get('/api/admin/categories', requireAuth, requireAdmin, getAdminCategories);
 
 // Admin endpoint: Create category
 app.post('/admin/categories', requireAuth, requireAdmin, async (req, res) => {
@@ -1085,7 +1068,7 @@ app.get('/banners', async (req, res) => {
 });
 
 // Admin endpoint: Get all banners
-app.get('/admin/banners', requireAuth, requireAdmin, async (_req, res) => {
+const getAdminBanners = async (_req, res) => {
   try {
     const rows = await query('SELECT * FROM Banner ORDER BY displayOrder ASC, createdAt DESC');
     res.json(rows.map(mapBanner));
@@ -1093,7 +1076,9 @@ app.get('/admin/banners', requireAuth, requireAdmin, async (_req, res) => {
     console.error('[BANNERS] Error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
-});
+};
+app.get('/admin/banners', requireAuth, requireAdmin, getAdminBanners);
+app.get('/api/admin/banners', requireAuth, requireAdmin, getAdminBanners);
 
 // Admin endpoint: Create banner
 app.post('/admin/banners', requireAuth, requireAdmin, async (req, res) => {
@@ -1795,7 +1780,7 @@ app.get('/orders', requireAuth, async (req, res) => {
 
 // STEP 6: Get Order Details (for web admin and mobile app)
 // This endpoint requires authentication (admin can view any order, users can view their own)
-app.get('/orders/:id', requireAuth, async (req, res) => {
+const getOrderByIdHandler = async (req, res) => {
   try {
     const orderId = Number(req.params.id);
 
@@ -1838,11 +1823,13 @@ app.get('/orders/:id', requireAuth, async (req, res) => {
       details: error.message
     });
   }
-});
+};
+app.get('/orders/:id', requireAuth, getOrderByIdHandler);
+app.get('/api/orders/:id', requireAuth, getOrderByIdHandler);
 
 // STEP 8: Update Order Status (for web admin)
 // This endpoint requires admin authentication
-app.patch('/orders/:id/status', requireAuth, requireAdmin, async (req, res) => {
+const patchOrderStatusHandler = async (req, res) => {
   try {
     const orderId = Number(req.params.id);
     const { status } = req.body ?? {};
@@ -1923,7 +1910,9 @@ app.patch('/orders/:id/status', requireAuth, requireAdmin, async (req, res) => {
       details: error.message
     });
   }
-});
+};
+app.patch('/orders/:id/status', requireAuth, requireAdmin, patchOrderStatusHandler);
+app.patch('/api/orders/:id/status', requireAuth, requireAdmin, patchOrderStatusHandler);
 
 // STEP 10: Dashboard Statistics (for web admin)
 // This endpoint requires admin authentication
@@ -3139,15 +3128,6 @@ app.post('/api/payments/bakong/webhook', async (req, res) => {
     });
   }
 });
-
-// Sentry error handler (must be after all routes)
-if (process.env.SENTRY_DSN && Sentry.Handlers) {
-  try {
-    app.use(Sentry.Handlers.errorHandler());
-  } catch (error) {
-    logger.warn('Sentry error handler not available', { error: error.message });
-  }
-}
 
 const PORT = process.env.PORT || 4000;
 

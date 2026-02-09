@@ -65,12 +65,17 @@ export default function CategoriesPage() {
     return isValidHexColor(v) ? `#${v}` : v;
   }
 
+  function ensureArray(val) {
+    return Array.isArray(val) ? val : (val?.data != null ? (Array.isArray(val.data) ? val.data : []) : []);
+  }
+
   async function load() {
     try {
       const { data } = await api.get('/admin/categories');
-      setItems(data);
+      setItems(ensureArray(data));
     } catch (err) {
       setError(err.response?.data?.error || 'Load error');
+      setItems([]);
     }
   }
   useEffect(() => { load(); }, []);
@@ -295,7 +300,7 @@ export default function CategoriesPage() {
                   {form.icon && (
                     <div className="mt-2">
                       <img 
-                        src={form.icon.startsWith('http') ? form.icon : `http://localhost:4000${form.icon}`} 
+                        src={form.icon.startsWith('http') ? form.icon : form.icon} 
                         alt="Category preview" 
                         className="h-20 w-20 object-cover rounded-lg border border-slate-200"
                       />
@@ -419,7 +424,7 @@ export default function CategoriesPage() {
                 {form.logoUrl && (
                   <div className="mt-2">
                     <img 
-                      src={form.logoUrl.startsWith('http') ? form.logoUrl : `http://localhost:4000${form.logoUrl}`} 
+                      src={form.logoUrl.startsWith('http') ? form.logoUrl : form.logoUrl} 
                       alt="Logo preview" 
                       className="h-16 w-16 object-contain rounded-lg border border-slate-200 bg-white p-1"
                     />
@@ -548,7 +553,7 @@ export default function CategoriesPage() {
                         <td className="px-4 py-3">
                           {cat.logoUrl ? (
                             <img 
-                              src={cat.logoUrl.startsWith('http') ? cat.logoUrl : `http://localhost:4000${cat.logoUrl}`}
+                              src={cat.logoUrl.startsWith('http') ? cat.logoUrl : cat.logoUrl}
                               alt={`${cat.name} logo`}
                               className="h-8 w-8 object-contain"
                             />

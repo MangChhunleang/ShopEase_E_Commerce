@@ -31,23 +31,25 @@ export default function DashboardPage() {
       setLoading(true);
       setError('');
       
-      // Fetch dashboard statistics
+      // Fetch dashboard statistics (API returns { orders: {...}, revenue: {...}, recentOrders } or flat)
       const statsRes = await api.get('/stats');
-      const data = statsRes.data;
-      
+      const data = statsRes.data || {};
+      const orders = data.orders || {};
+      const revenue = data.revenue || {};
+
       setStats({
-        totalProducts: data.totalProducts || 0,
-        totalOrders: data.totalOrders || 0,
-        totalRevenue: data.totalRevenue || 0,
-        totalUsers: data.totalUsers || 0,
-        pendingOrders: data.pendingOrders || 0,
-        processingOrders: data.processingOrders || 0,
-        deliveredOrders: data.deliveredOrders || 0,
-        cancelledOrders: data.cancelledOrders || 0,
-        expiredOrders: data.expiredOrders || 0,
-        failedOrders: data.failedOrders || 0,
-        recentOrders: 0,
-        recentRevenue: 0,
+        totalProducts: data.totalProducts ?? 0,
+        totalOrders: data.totalOrders ?? orders.total ?? 0,
+        totalRevenue: data.totalRevenue ?? revenue.total ?? 0,
+        totalUsers: data.totalUsers ?? 0,
+        pendingOrders: data.pendingOrders ?? orders.pending ?? 0,
+        processingOrders: data.processingOrders ?? orders.processing ?? 0,
+        deliveredOrders: data.deliveredOrders ?? orders.delivered ?? 0,
+        cancelledOrders: data.cancelledOrders ?? orders.cancelled ?? 0,
+        expiredOrders: data.expiredOrders ?? orders.expired ?? 0,
+        failedOrders: data.failedOrders ?? orders.failed ?? 0,
+        recentOrders: data.recentOrders ?? orders.recent ?? 0,
+        recentRevenue: data.recentRevenue ?? revenue.recent ?? 0,
       });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load statistics');
@@ -59,12 +61,21 @@ export default function DashboardPage() {
 
   async function loadRecentOrders() {
     try {
-      // Fetch recent orders (last 5)
       const { data } = await api.get('/orders', { params: { limit: 5 } });
-      setRecentOrders(data.slice(0, 5)); // Limit to 5 most recent
+      const ordersList =
+        Array.isArray(data) ? data :
+        Array.isArray(data?.data) ? data.data :
+        Array.isArray(data?.orders) ? data.orders :
+        [];
+      const recent = ordersList.slice(0, 5);
+      setRecentOrders(recent);
+      // Verification: in DevTools → Network → /api/orders confirm response shape
+      if (process.env.NODE_ENV === 'development') {
+        console.log('orders payload:', data);
+        console.log('orders list:', ordersList, Array.isArray(ordersList));
+      }
     } catch (err) {
       console.error('Error loading recent orders:', err);
-      // Don't show error for recent orders, just log it
     }
   }
 
@@ -267,7 +278,7 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
-                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                          {(order.status && typeof order.status === 'string') ? (order.status.charAt(0).toUpperCase() + order.status.slice(1)) : (order.status ?? '—')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-slate-900 font-semibold">

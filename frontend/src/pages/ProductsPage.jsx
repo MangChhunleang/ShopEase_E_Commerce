@@ -43,18 +43,26 @@ export default function ProductsPage() {
   };
   const selectedCategoryMissing = form.category && !leafCategories.some(c => c.name === form.category);
 
+  function ensureArray(val) {
+    return Array.isArray(val) ? val : (val?.data != null ? (Array.isArray(val.data) ? val.data : []) : []);
+  }
+
   async function load() {
-    const { data } = await api.get('/admin/products');
-    setItems(data);
+    try {
+      const { data } = await api.get('/admin/products');
+      setItems(ensureArray(data));
+    } catch (err) {
+      setError(err.response?.data?.error || 'Load error');
+      setItems([]);
+    }
   }
 
   async function loadCategories() {
     try {
       const { data } = await api.get('/admin/categories');
-      setCategories(data);
+      setCategories(ensureArray(data));
     } catch (err) {
       console.error('Failed to load categories:', err);
-      // Fallback to empty array if categories fail to load
       setCategories([]);
     }
   }

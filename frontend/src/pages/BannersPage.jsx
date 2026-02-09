@@ -21,30 +21,38 @@ export default function BannersPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [uploading, setUploading] = useState(false);
 
+  function ensureArray(val) {
+    return Array.isArray(val) ? val : (val?.data != null ? (Array.isArray(val.data) ? val.data : []) : []);
+  }
+
   async function load() {
     try {
       const { data } = await api.get('/admin/banners');
-      setItems(data);
+      setItems(ensureArray(data));
     } catch (err) {
       setError(err.response?.data?.error || 'Load error');
+      setItems([]);
     }
   }
 
   async function loadProducts() {
     try {
       const { data } = await api.get('/admin/products');
-      setProducts(data.filter(p => p.status === 'ACTIVE'));
+      const list = ensureArray(data);
+      setProducts(list.filter(p => p && p.status === 'ACTIVE'));
     } catch (err) {
       console.error('Failed to load products:', err);
+      setProducts([]);
     }
   }
 
   async function loadCategories() {
     try {
       const { data } = await api.get('/admin/categories');
-      setCategories(data);
+      setCategories(ensureArray(data));
     } catch (err) {
       console.error('Failed to load categories:', err);
+      setCategories([]);
     }
   }
 

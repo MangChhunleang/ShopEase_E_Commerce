@@ -165,7 +165,14 @@ app.get('/cache/stats', async (req, res) => {
 });
 
 // Serve static files (uploaded images)
+//
+// NOTE:
+// - `/uploads/*` is the canonical public path returned by the API.
+// - `/api/uploads/*` is provided as a fallback for deployments where only `/api/*`
+//   is proxied through Nginx (or where a regex location accidentally intercepts
+//   `/uploads/*.jpg` requests).
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Auth routes
 app.use('/api/auth', authLimiter, authRoutes);

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,7 @@ class _AuthPageState extends State<AuthPage> {
   @override
   void initState() {
     super.initState();
+    _phoneController.text = '123456789'; // Static phone for dev / quick login
     _startCountdown();
   }
 
@@ -130,6 +132,48 @@ class _AuthPageState extends State<AuthPage> {
               onPressed: () {},
             ),
           ),
+        );
+      }
+    }
+  }
+
+  /// Dev bypass: login with static phone without Firebase verification
+  Future<void> _devSignUp() async {
+    if (_phoneController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your phone number'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      final success = await _authService.devLoginWithPhone(
+        countryCode: _selectedCountryCode,
+        phoneNumber: _phoneController.text,
+      );
+      if (success && mounted) {
+        try {
+          final orderService = OrderService();
+          await orderService.syncOrdersFromBackend();
+        } catch (e) {
+          debugPrint('Error syncing orders after login: $e');
+        }
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      String msg = e.toString();
+      if (msg.startsWith('Exception: ')) msg = msg.substring(11);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
         );
       }
     }
@@ -428,12 +472,20 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Widget _buildSignUpButton() {
+    // In debug mode: allow one-tap signup with static phone (no verification)
+    final bool canDevSignUp = kDebugMode && _phoneController.text.isNotEmpty;
+    final bool canNormalSignUp = _codeRequested && _codeController.text.length == 6;
+    final bool enabled = !_isLoading && (canDevSignUp || canNormalSignUp);
+    final VoidCallback? onTap = enabled
+        ? (canDevSignUp && !canNormalSignUp ? _devSignUp : _signUpSignIn)
+        : null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: (_isLoading || !_codeRequested) ? null : _signUpSignIn,
+          onPressed: onTap,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primaryBlue,
             foregroundColor: Colors.white,

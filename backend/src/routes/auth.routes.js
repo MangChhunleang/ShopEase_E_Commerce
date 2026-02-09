@@ -156,4 +156,69 @@ router.post('/firebase-login', async (req, res) => {
   }
 });
 
+// Dev-only: Static phone login (bypass Firebase) - for local testing
+router.post('/dev-login', async (req, res) => {
+  try {
+    const isDev =
+      process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_LOGIN === 'true';
+    if (!isDev) {
+      return res.status(403).json({
+        success: false,
+        message: 'Dev login is disabled in production'
+      });
+    }
+
+    const { phone } = req.body;
+    const phoneNumber = phone
+      ? String(phone).replace(RegExp(/[\s\-\(\)]/g), '').trim()
+      : '';
+
+    if (!phoneNumber || phoneNumber.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required (e.g. +855123456789 or 123456789)'
+      });
+    }
+
+    const fullPhone =
+      phoneNumber.startsWith('+') ? phoneNumber : `+855${phoneNumber}`;
+
+    let users = await query('SELECT * FROM User WHERE phoneNumber = ? LIMIT 1', [fullPhone]);
+    let user = users[0];
+
+    if (!user) {
+      const tempEmail = `phone_${fullPhone.replace(/[^0-9]/g, '')}@shopease.local`;
+      const placeholderHash = '$2b$10$' + crypto.randomBytes(32).toString('base64').slice(0, 53);
+      const insertResult = await query(
+        'INSERT INTO User (email, passwordHash, phoneNumber, isPhoneVerified, role, createdAt, updatedAt) VALUES (?, ?, ?, TRUE, ?, NOW(), NOW())',
+        [tempEmail, placeholderHash, fullPhone, 'USER']
+      );
+      users = await query('SELECT * FROM User WHERE id = ? LIMIT 1', [insertResult.insertId]);
+      user = users[0];
+      console.log(`[Dev-Login] Created new user: ${fullPhone} (ID: ${user.id})`);
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Dev login successful',
+      token,
+      role: user.role,
+      userId: user.id,
+      phoneNumber: fullPhone
+    });
+  } catch (error) {
+    console.error('Error in dev-login:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 export default router;

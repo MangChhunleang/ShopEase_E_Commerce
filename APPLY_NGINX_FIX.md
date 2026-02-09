@@ -82,7 +82,9 @@ server {
         add_header Content-Type text/plain;
     }
 
-    location /api/ {
+    # IMPORTANT: use ^~ so the regex static-assets block below
+    # does NOT intercept URLs like /uploads/*.jpg.
+    location ^~ /api/ {
         proxy_pass http://localhost:4000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -97,7 +99,10 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    location /uploads/ {
+    # Uploaded images are served by the backend (Express static).
+    # Use ^~ so the "static assets" regex block below won't steal .jpg/.png
+    # requests and 404 them from /usr/share/nginx/html.
+    location ^~ /uploads/ {
         proxy_pass http://localhost:4000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

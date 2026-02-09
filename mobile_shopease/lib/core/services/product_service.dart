@@ -122,9 +122,19 @@ class ProductService extends ChangeNotifier {
       debugPrint('Products API response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final List<dynamic> productsData = jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
+        // Backend returns { data: [...], pagination: {...} }
+        // but keep compatibility if it ever returns a raw list.
+        final List<dynamic> productsData;
+        if (decoded is List) {
+          productsData = decoded;
+        } else if (decoded is Map<String, dynamic> && decoded['data'] is List) {
+          productsData = decoded['data'] as List<dynamic>;
+        } else {
+          throw const FormatException('Unexpected products response format');
+        }
         debugPrint('Fetched ${productsData.length} products from backend');
-
+        
         _products = productsData.map((json) => Product.fromJson(json)).toList();
         _lastFetchTime = DateTime.now();
         _error = null;

@@ -98,7 +98,7 @@ class AuthService extends ChangeNotifier {
   // Helper to exchange Firebase ID Token for Backend JWT
   Future<void> _backendLogin(String idToken) async {
     debugPrint('Exchanging Firebase Token for Backend JWT...');
-    debugPrint('API URL: $_apiBaseUrl/api/auth/firebase-login');
+    debugPrint('API URL: $_apiBaseUrl/auth/firebase-login');
     debugPrint('ID Token length: ${idToken.length}');
     debugPrint(
       'ID Token preview: ${idToken.substring(0, idToken.length > 50 ? 50 : idToken.length)}...',
@@ -106,7 +106,7 @@ class AuthService extends ChangeNotifier {
 
     final response = await http
         .post(
-          Uri.parse('$_apiBaseUrl/api/auth/firebase-login'),
+          Uri.parse('$_apiBaseUrl/auth/firebase-login'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'idToken': idToken}),
         )
@@ -224,6 +224,50 @@ class AuthService extends ChangeNotifier {
     }
 
     return completer.future;
+  }
+
+  /// Dev-only: Login with static phone (bypass Firebase) - for local testing
+  Future<bool> devLoginWithPhone({required String countryCode, required String phoneNumber}) async {
+    try {
+      final cleanPhone = phoneNumber.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+      final cleanCountry = countryCode.startsWith('+') ? countryCode : '+$countryCode';
+      final fullPhone = '$cleanCountry$cleanPhone';
+
+      debugPrint('[Dev-Login] Calling dev-login with phone: $fullPhone');
+      final response = await http
+          .post(
+            Uri.parse('$_apiBaseUrl/auth/dev-login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'phone': fullPhone}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final token = data['token'] as String;
+        final role = data['role'] as String;
+        final userId = data['userId']?.toString();
+        final phone = data['phoneNumber'] as String? ?? fullPhone;
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_tokenKey, token);
+        await prefs.setString(_roleKey, role);
+        await prefs.setString(_phoneKey, phone);
+        if (userId != null) await prefs.setString(_authKey, userId);
+
+        _token = token;
+        _role = role;
+        _currentUserId = userId;
+        _currentPhoneNumber = phone;
+        notifyListeners();
+        return true;
+      } else {
+        throw Exception('Dev login failed: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error in devLoginWithPhone: $e');
+      rethrow;
+    }
   }
 
   Future<bool> signInWithPhone({

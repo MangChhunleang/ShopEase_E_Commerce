@@ -17,4 +17,4 @@ CREATE INDEX `User_role_idx` ON `User`(`role`);
 CREATE INDEX `User_createdAt_idx` ON `User`(`createdAt`);
 
 -- RenameIndex
-ALTER TABLE `product` RENAME INDEX `Product_updatedById_fkey` TO `Product_updatedById_idx`;
+ALTER TABLE `Product` RENAME INDEX `Product_updatedById_fkey` TO `Product_updatedById_idx`;

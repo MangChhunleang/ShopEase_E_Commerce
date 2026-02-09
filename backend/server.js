@@ -680,8 +680,8 @@ app.post('/user/upload', requireAuth, upload.single('image'), (req, res) => {
   }
 });
 
-// Delete uploaded image
-app.delete('/admin/upload/:filename', requireAuth, requireAdmin, (req, res) => {
+// Delete uploaded image (register both paths so /api/admin/upload/:filename works via Nginx)
+const deleteUploadHandler = (req, res) => {
   try {
     const filename = req.params.filename;
 
@@ -706,7 +706,9 @@ app.delete('/admin/upload/:filename', requireAuth, requireAdmin, (req, res) => {
     logger.error('Image delete error', { filename: req.params.filename, error: error.message });
     res.status(500).json({ error: 'Delete failed', details: error.message });
   }
-});
+};
+app.delete('/admin/upload/:filename', requireAuth, requireAdmin, deleteUploadHandler);
+app.delete('/api/admin/upload/:filename', requireAuth, requireAdmin, deleteUploadHandler);
 
 // ==================== BANNER UPLOAD ENDPOINTS ====================
 

@@ -451,7 +451,7 @@ const getAdminProducts = async (_req, res) => {
 app.get('/admin/products', requireAuth, requireAdmin, getAdminProducts);
 app.get('/api/admin/products', requireAuth, requireAdmin, getAdminProducts);
 
-app.post('/admin/products', requireAuth, requireAdmin, async (req, res) => {
+app.post(['/admin/products', '/api/admin/products'], requireAuth, requireAdmin, async (req, res) => {
   const { name, description = '', price, stock = 0, status = 'ACTIVE', images = [], category = null } = req.body ?? {};
   if (!name || price === undefined) return res.status(400).json({ error: 'Name and price required' });
 
@@ -486,7 +486,7 @@ app.post('/admin/products', requireAuth, requireAdmin, async (req, res) => {
   res.status(201).json(mapProduct(product));
 });
 
-app.put('/admin/products/:id', requireAuth, requireAdmin, async (req, res) => {
+app.put(['/admin/products/:id', '/api/admin/products/:id'], requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) {
@@ -568,7 +568,7 @@ app.put('/admin/products/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.patch('/admin/products/:id/status', requireAuth, requireAdmin, async (req, res) => {
+app.patch(['/admin/products/:id/status', '/api/admin/products/:id/status'], requireAuth, requireAdmin, async (req, res) => {
   const { status } = req.body ?? {};
   if (!['ACTIVE', 'ARCHIVED'].includes(status)) return res.status(400).json({ error: 'Bad status' });
   const productId = Number(req.params.id);
@@ -583,7 +583,7 @@ app.patch('/admin/products/:id/status', requireAuth, requireAdmin, async (req, r
   res.json({ ok: true });
 });
 
-app.delete('/admin/products/:id', requireAuth, requireAdmin, async (req, res) => {
+app.delete(['/admin/products/:id', '/api/admin/products/:id'], requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) {
@@ -635,7 +635,7 @@ app.delete('/admin/products/:id', requireAuth, requireAdmin, async (req, res) =>
 // ==================== FILE UPLOAD ENDPOINTS ====================
 
 // Upload product images
-app.post('/admin/upload', requireAuth, requireAdmin, upload.array('images', 10), (req, res) => {
+app.post(['/admin/upload', '/api/admin/upload'], requireAuth, requireAdmin, upload.array('images', 10), (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
@@ -713,7 +713,7 @@ app.delete('/api/admin/upload/:filename', requireAuth, requireAdmin, deleteUploa
 // ==================== BANNER UPLOAD ENDPOINTS ====================
 
 // Upload banner images
-app.post('/admin/banners/upload', requireAuth, requireAdmin, uploadBanner.array('images', 10), (req, res) => {
+app.post(['/admin/banners/upload', '/api/admin/banners/upload'], requireAuth, requireAdmin, uploadBanner.array('images', 10), (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
@@ -734,7 +734,7 @@ app.post('/admin/banners/upload', requireAuth, requireAdmin, uploadBanner.array(
 });
 
 // Delete uploaded banner image
-app.delete('/admin/banners/upload/:filename', requireAuth, requireAdmin, (req, res) => {
+app.delete(['/admin/banners/upload/:filename', '/api/admin/banners/upload/:filename'], requireAuth, requireAdmin, (req, res) => {
   try {
     const filename = req.params.filename;
 
@@ -854,7 +854,7 @@ app.get('/admin/categories', requireAuth, requireAdmin, getAdminCategories);
 app.get('/api/admin/categories', requireAuth, requireAdmin, getAdminCategories);
 
 // Admin endpoint: Create category
-app.post('/admin/categories', requireAuth, requireAdmin, async (req, res) => {
+app.post(['/admin/categories', '/api/admin/categories'], requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, description = null, icon = null, color = null, logoUrl = null, parentCategoryId = null } = req.body ?? {};
     if (!name || name.trim() === '') {
@@ -912,7 +912,7 @@ app.post('/admin/categories', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Admin endpoint: Update category
-app.put('/admin/categories/:id', requireAuth, requireAdmin, async (req, res) => {
+app.put(['/admin/categories/:id', '/api/admin/categories/:id'], requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) {
@@ -991,7 +991,7 @@ app.put('/admin/categories/:id', requireAuth, requireAdmin, async (req, res) => 
 });
 
 // Admin endpoint: Delete category
-app.delete('/admin/categories/:id', requireAuth, requireAdmin, async (req, res) => {
+app.delete(['/admin/categories/:id', '/api/admin/categories/:id'], requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) {
@@ -1083,7 +1083,7 @@ app.get('/admin/banners', requireAuth, requireAdmin, getAdminBanners);
 app.get('/api/admin/banners', requireAuth, requireAdmin, getAdminBanners);
 
 // Admin endpoint: Create banner
-app.post('/admin/banners', requireAuth, requireAdmin, async (req, res) => {
+app.post(['/admin/banners', '/api/admin/banners'], requireAuth, requireAdmin, async (req, res) => {
   try {
     const {
       title = null,
@@ -1158,7 +1158,7 @@ app.post('/admin/banners', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Admin endpoint: Update banner
-app.put('/admin/banners/:id', requireAuth, requireAdmin, async (req, res) => {
+app.put(['/admin/banners/:id', '/api/admin/banners/:id'], requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) {
@@ -1250,7 +1250,7 @@ app.put('/admin/banners/:id', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Admin endpoint: Delete banner
-app.delete('/admin/banners/:id', requireAuth, requireAdmin, async (req, res) => {
+app.delete(['/admin/banners/:id', '/api/admin/banners/:id'], requireAuth, requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id || isNaN(id)) {

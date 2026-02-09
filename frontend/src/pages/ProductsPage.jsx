@@ -13,11 +13,10 @@ const imageFallback = `data:image/svg+xml;utf8,${encodeURIComponent(
 )}`;
 
 export default function ProductsPage() {
-  const apiBaseUrl = (api.defaults.baseURL || '').replace(/\/$/, '');
   const resolveImageUrl = (url) => {
     if (!url) return url;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
-    if (url.startsWith('/uploads')) return `${apiBaseUrl}${url}`;
+    if (url.startsWith('/uploads')) return url;
     return url;
   };
   const [items, setItems] = useState([]);

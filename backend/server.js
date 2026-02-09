@@ -544,10 +544,9 @@ app.put(['/admin/products/:id', '/api/admin/products/:id'], requireAuth, require
     }
 
     logger.info('Product updated', { productId: id, name: products[0].name });
-    
-    // ✅ CACHE INVALIDATION: Clear caches after product update
-    await invalidateProductCache(id);
-    
+    // Redis/cache invalidation disabled in this deployment.
+    // await invalidateProductCache(id);
+
     res.json(mapProduct(products[0]));
   } catch (error) {
     logger.error('Product update error', { 
@@ -608,10 +607,9 @@ app.delete(['/admin/products/:id', '/api/admin/products/:id'], requireAuth, requ
     }
 
     logger.info('Product deleted', { productId: id });
-    
-    // ✅ CACHE INVALIDATION: Clear caches after product deletion
-    await invalidateProductCache(id);
-    
+    // Redis/cache invalidation disabled in this deployment.
+    // await invalidateProductCache(id);
+
     res.json({ ok: true, message: 'Product deleted successfully' });
   } catch (error) {
     logger.error('Product delete error', {

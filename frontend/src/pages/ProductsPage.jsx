@@ -16,6 +16,7 @@ export default function ProductsPage() {
   const resolveImageUrl = (url) => {
     if (!url) return url;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
+    if (url.startsWith('/api/uploads')) return url.replace(/^\/api/, '');
     if (url.startsWith('/uploads')) return url;
     return url;
   };

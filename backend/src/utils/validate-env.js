@@ -18,7 +18,6 @@ const RECOMMENDED_VARS = {
   'ALLOWED_ORIGINS': 'CORS will allow all origins (insecure for production)',
   'BAKONG_ACCESS_TOKEN': 'Bakong payments will not work',
   'BAKONG_MERCHANT_ID': 'Bakong payments will not work',
-  'SENTRY_DSN': 'Error tracking is disabled',
   'NODE_ENV': 'Running in development mode',
 };
 

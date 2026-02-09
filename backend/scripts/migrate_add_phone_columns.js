@@ -11,7 +11,7 @@ async function migrate() {
   const conn = await getConnection();
   try {
     // Check if phoneNumber column exists
-    const columns = await conn.query(`
+    const [columns] = await conn.query(`
       SELECT COLUMN_NAME 
       FROM INFORMATION_SCHEMA.COLUMNS 
       WHERE TABLE_SCHEMA = DATABASE() 
@@ -28,7 +28,7 @@ async function migrate() {
     }
 
     // Check if isPhoneVerified column exists
-    const verifiedColumns = await conn.query(`
+    const [verifiedColumns] = await conn.query(`
       SELECT COLUMN_NAME 
       FROM INFORMATION_SCHEMA.COLUMNS 
       WHERE TABLE_SCHEMA = DATABASE() 

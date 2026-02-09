@@ -6,20 +6,18 @@ import 'package:flutter/foundation.dart';
 /// This file contains the base URL for the backend API.
 /// It automatically detects if running on Android Emulator or iOS Simulator.
 class ApiConfig {
-  // API base URL - points to Digital Ocean production server (Nginx on port 80)
+  // API base URL - points to local development backend server (port 4000)
   static String get apiBaseUrl {
-    if (kIsWeb) {
-      return 'http://24.199.101.185';
-    }
-    
-    if (Platform.isAndroid) {
-      // Production server IP (Nginx reverse proxy on port 80)
-      return 'http://24.199.101.185';
-    } else {
-      // iOS simulator (Nginx reverse proxy on port 80)
-      return 'http://24.199.101.185';
-    }
+  if (kIsWeb) {
+    return 'https://shopease-admi.me';
   }
+  
+  if (Platform.isAndroid) {
+    return 'https://shopease-admi.me';
+  } else {
+    return 'https://shopease-admi.me';
+  }
+}
   
   /// Convert a relative image URL to an absolute URL for the mobile app
   static String processImageUrl(String imageUrl) {

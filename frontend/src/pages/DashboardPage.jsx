@@ -67,7 +67,7 @@ export default function DashboardPage() {
         Array.isArray(data?.data) ? data.data :
         Array.isArray(data?.orders) ? data.orders :
         [];
-      const recent = ordersList.slice(0, 5);
+      const recent = Array.from(ordersList || []).slice(0, 5);
       setRecentOrders(recent);
       // Verification: in DevTools → Network → /api/orders confirm response shape
       if (process.env.NODE_ENV === 'development') {

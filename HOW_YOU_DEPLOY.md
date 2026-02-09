@@ -14,6 +14,29 @@ So the **admin site** (login, dashboard, orders, etc.) is the **frontend** built
 
 ---
 
+## "I deployed but still see the same errors"
+
+The browser is almost certainly still loading the **old** JS bundle (e.g. `index-re453muT.js`). Fix it like this:
+
+1. **On the server** – Build and deploy in one go, then confirm the new file name:
+   ```bash
+   cd /var/www/ShopEase_E_Commerce && git pull origin main
+   cd frontend && npm run build
+   grep -o 'index-[^"]*\.js' dist/index.html
+   sudo cp -r dist/* /usr/share/nginx/html/
+   grep -o 'index-[^"]*\.js' /usr/share/nginx/html/index.html
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+   The two `grep` lines should show the **same** filename (e.g. `index-CgxN79ET.js`). If the second grep still shows `index-re453muT.js`, the copy didn’t work or Nginx root is wrong.
+
+2. **In the browser** – Force load the new bundle:
+   - Open the site in an **Incognito/Private** window, or  
+   - Open DevTools (F12) → **Network** tab → check **Disable cache** → refresh (Ctrl+Shift+R).
+
+3. **Check what’s actually loaded** – In DevTools → Network, refresh and look at the main `.js` file. If it’s still `index-re453muT.js`, the server is still serving the old build; fix the deploy path and copy step above.
+
+---
+
 ## How to deploy the frontend (so the “recent orders” fix goes live)
 
 You need to **build the frontend** and **put the built files** into `/usr/share/nginx/html` on the server.
